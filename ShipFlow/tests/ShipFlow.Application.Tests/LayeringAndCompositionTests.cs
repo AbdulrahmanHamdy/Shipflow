@@ -27,6 +27,7 @@ public class CompositionTests
         // Resolving the DbContext needs a connection string; nothing connects to it in this test.
         builder.Configuration["ConnectionStrings:DefaultConnection"] = "Server=localhost;Database=ShipFlow_CompositionTest;TrustServerCertificate=True";
         builder.Services.AddLogging();
+        builder.Services.AddScoped<ICurrentUser, ShipFlow.Application.Tests.Shipments.FakeCurrentUser>();
 
         builder.Services.AddApplication().AddInfrastructure(builder.Configuration);
 

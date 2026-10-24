@@ -41,6 +41,13 @@ internal static class ShipmentMapping
         new(q.Id, q.ShipmentId, q.CompanyId, q.Price.Amount, q.Price.Currency, q.ExpiresAtUtc, q.Terms,
             q.Status.ToString(), q.CreatedAtUtc, q.ResolvedAtUtc);
 
+    public static ShipmentSummaryDto ToSummary(this Shipment s) =>
+        new(s.Id, s.Reference, s.Status, s.CreatedAtUtc, s.UpdatedAtUtc,
+            s.Cargo.Description, s.Cargo.WeightKg, s.Cargo.VolumeM3,
+            s.Stops.OrderBy(x => x.Sequence).Select(x => x.Address).First(),
+            s.Stops.OrderByDescending(x => x.Sequence).Select(x => x.Address).First(),
+            s.AgreedPrice?.Amount, s.AgreedPrice?.Currency, s.CarrierCompanyId);
+
     public static ShipmentDetailsDto ToDetails(this Shipment s, Viewer viewer) =>
         new(s.Id, s.Reference, s.Status.ToString(), s.CreatedAtUtc, s.UpdatedAtUtc,
             new CargoDto(s.Cargo.Description, s.Cargo.WeightKg, s.Cargo.VolumeM3),

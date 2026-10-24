@@ -184,20 +184,32 @@ public class AuthFlowSqlServerTests : IClassFixture<SqlServerDatabaseFixture>, I
     [SqlServerFact]
     public async Task DevelopmentSeed_IsIgnored_OutsideDevelopment()
     {
+        // Use a uniquely-named sentinel email so this test is independent of run order
+        // (another test in this class may create the standard seed users in the shared DB).
+        var uniquePrefix = Guid.NewGuid().ToString("N")[..8];
         var settings = new Dictionary<string, string?>
         {
             ["ConnectionStrings:DefaultConnection"] = _db.ConnectionString,
             ["Database:SeedReferenceData"] = "true",
             ["Database:SeedDevelopmentData"] = "true",
+            // Use a unique password so the sentinel emails would be unique if seeded
             ["Seed:DevPassword"] = "Aa1-" + Guid.NewGuid().ToString("N")
         };
         using var factory = new ShipFlowApiFactory().WithSettings(settings); // environment: Testing
         using var scope = factory.Services.CreateScope();
 
+        // Count users before the call to detect if any NEW user was created by dev-seed
+        await using var contextBefore = _db.CreateContext();
+        var countBefore = await contextBefore.Users.CountAsync();
+
         await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync(CancellationToken.None);
 
-        await using var context = _db.CreateContext();
-        Assert.False(await context.Users.AnyAsync(u => u.Email == "admin@shipflow.test"));
+        await using var contextAfter = _db.CreateContext();
+        var countAfter = await contextAfter.Users.CountAsync();
+
+        // Dev-seed users must NOT have been created in a non-Development environment.
+        // Role seeding (SeedReferenceData) only creates roles, not users; user count should be unchanged.
+        Assert.Equal(countBefore, countAfter);
     }
 
     [SqlServerFact]

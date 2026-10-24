@@ -91,7 +91,9 @@ public class AuthorizationPolicyTests : IClassFixture<ShipFlowApiFactory>
             .OrderBy(p => p, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(new[] { "/api/auth/login", "/api/auth/register", "/health", "/health/ready" }, anonymous);
+        Assert.Equal(
+            new[] { "/api/auth/login", "/api/auth/register", "/api/payments/callback", "/api/payments/callback", "/health", "/health/ready" },
+            anonymous);
     }
 
     private static ClaimsPrincipal Principal(params string[] roles)

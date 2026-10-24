@@ -153,3 +153,29 @@ vehicle is refused with 409; unassign first. "Active" ignores the window (a comp
 routes/bodies (driver, vehicle, user) are always looked up inside that company, so another tenant's id is "not found" (404) and no lock
 is ever taken on another tenant's rows (pre-checks run before locking).
 
+
+| D-029 | 2026-10-24 | GPS deduplication: `(shipmentId, recordedAtUtc, recordedByUserId)` composite idempotency key; duplicate tracking points silently dropped | Accepted |
+| D-030 | 2026-10-24 | Paymob integration: 3-step API flow, HMAC-SHA512 webhook verification, `UseMock` toggle | Accepted |
+| D-031 | 2026-10-24 | SMTP email: `IEmailSender` port in Application; `SmtpEmailSender` in Infrastructure; credentials never logged | Accepted |
+
+## D-029 GPS tracking deduplication
+A driver's GPS device may re-send a point on reconnect. The server must be idempotent: the same physical location event must
+not create two rows. Strategy: before inserting, `ITrackingStore.ExistsAsync(shipmentId, recordedAtUtc, userId)` checks a
+composite key. If a row with the same three values already exists, the handler returns the existing value without error (200 OK,
+not 409 Conflict). The database has a unique index `UX_TrackingPoints_Shipment_RecordedAt_User` as a backstop. The
+server-receipt timestamp (`ReceivedAtUtc`) differs across requests, so only the device-supplied `recordedAtUtc` is checked.
+Freshness limits: points older than 24 h or more than 1 h in the future are rejected (configurable via `Tracking:MaxAgeHours`
+and `Tracking:MaxFutureMinutes`).
+
+## D-030 Paymob integration
+Three-step flow: (1) Authenticate → get API token, (2) Create order → get order id, (3) Request payment key → get iframe
+payment token. The payment key is returned to the caller who renders the Paymob-hosted iframe. Webhook callback is `[AllowAnonymous]`;
+the HMAC-SHA512 is verified server-side using sorted, concatenated response fields. Idempotent: the handler looks up the
+existing `Payment` record by `orderId` before creating a new one. `Paymob:UseMock = true` returns a deterministic mock
+response without contacting Paymob (for development/CI without live credentials).
+
+## D-031 SMTP email
+`IEmailSender` (Application) with a single `SendAsync(EmailMessage)` method. `SmtpEmailSender` (Infrastructure) reads
+`Email:SmtpHost/Port/UseSsl/SenderEmail/SenderName/Password` from configuration. SMTP credentials and message subject/body
+are never written to the logger; only outcome events are, via `[LoggerMessage]` source generation (no boxing, no string
+concatenation).

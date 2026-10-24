@@ -46,8 +46,22 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
     app.UseSwaggerUI();
 }
 
+app.UseRouting();
 app.UseCors(CorsSetup.PolicyName);
 app.UseRateLimiter();
+
+// An unknown route should answer 404 Not Found rather than letting the FallbackPolicy challenge with 401 Unauthorized.
+app.Use(async (context, next) =>
+{
+    if (context.GetEndpoint() == null)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next(context);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 

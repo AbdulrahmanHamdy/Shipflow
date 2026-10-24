@@ -9,7 +9,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Application.Common.Security;
+using ShipFlow.Infrastructure.Email;
 using ShipFlow.Infrastructure.Identity;
+using ShipFlow.Infrastructure.Payment;
 using ShipFlow.Infrastructure.Persistence;
 using ShipFlow.Infrastructure.Persistence.Stores;
 
@@ -64,6 +66,14 @@ public static class DependencyInjection
         services.AddScoped<IFleetStore, FleetStore>();
         services.AddScoped<IFleetTransaction, FleetTransaction>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ITrackingStore, TrackingStore>();
+        services.AddScoped<IDriverAssignmentStore, DriverAssignmentStore>();
+
+        services.AddOptions<EmailSettings>().BindConfiguration(EmailSettings.SectionName);
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        services.AddOptions<PaymobSettings>().BindConfiguration(PaymobSettings.SectionName);
+        services.AddHttpClient<IPaymentService, PaymobService>();
 
         services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.SectionName);
         services.AddScoped<DatabaseInitializer>();

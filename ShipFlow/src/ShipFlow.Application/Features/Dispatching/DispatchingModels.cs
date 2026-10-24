@@ -8,7 +8,7 @@ public sealed record AssignmentDto(
     DateTime WindowStartUtc, DateTime WindowEndUtc, string Status, string ShipmentStatus,
     Guid AssignedByUserId, DateTime CreatedAtUtc, DateTime? EndedAtUtc, string? ReleaseReason);
 
-internal static class DispatchingMapping
+public static class DispatchingMapping
 {
     public static AssignmentDto ToDto(this Assignment a, ShipmentStatus shipmentStatus) =>
         new(a.Id, a.ShipmentId, a.CompanyId, a.DriverId, a.VehicleId, a.Window.StartUtc, a.Window.EndUtc,

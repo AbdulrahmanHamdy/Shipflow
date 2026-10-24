@@ -21,10 +21,9 @@ public sealed class SqlServerDatabaseFixture : IAsyncLifetime
             return;
         }
 
-        // No migration has been generated yet, so the schema comes from the model. Once InitialCreate exists, switch
-        // to MigrateAsync() so the tests also prove the migration matches the model (docs/TESTING.md).
+        // InitialCreate exists: MigrateAsync proves the migration matches the model (docs/TESTING.md).
         await using var context = CreateContext();
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
     }
 
     public async Task DisposeAsync()

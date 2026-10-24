@@ -1,10 +1,13 @@
 using ShipFlow.Application.Common.Models;
 using ShipFlow.Application.Features.Companies;
+using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Shipments;
+using ShipFlow.Application.Features.Tracking;
 using ShipFlow.Domain.Companies;
 using ShipFlow.Domain.Dispatching;
 using ShipFlow.Domain.Fleet;
 using ShipFlow.Domain.Shipments;
+using ShipFlow.Domain.Tracking;
 using ShipFlow.Domain.ValueObjects;
 
 namespace ShipFlow.Application.Common.Interfaces;
@@ -159,4 +162,39 @@ public interface IUnitOfWork
     /// plate, licence, membership...).
     /// </summary>
     Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
+// ─── Phase 5: Tracking and Delivery ──────────────────────────────────────────
+
+/// <summary>Filter for paginated tracking-point history.</summary>
+public sealed record TrackingListFilter(Guid ShipmentId, DateTime? FromUtc, DateTime? ToUtc, int Page, int PageSize);
+
+public interface ITrackingStore
+{
+    Task AddPointAsync(TrackingPoint point, CancellationToken cancellationToken);
+
+    /// <summary>Most recent point for a shipment, or null if none exist.</summary>
+    Task<TrackingPoint?> FindLatestAsync(Guid shipmentId, CancellationToken cancellationToken);
+
+    Task<PagedResult<TrackingPointDto>> ListAsync(TrackingListFilter filter, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Idempotency check: returns true if a point with the same (shipmentId, recordedAtUtc, recordedByUserId)
+    /// already exists. Duplicate points are silently ignored by the handler (D-029).
+    /// </summary>
+    Task<bool> ExistsAsync(Guid shipmentId, DateTime recordedAtUtc, Guid recordedByUserId, CancellationToken cancellationToken);
+
+    Task AddProofAsync(DeliveryProof proof, CancellationToken cancellationToken);
+
+    /// <summary>The delivery proof for a shipment, if one has been captured.</summary>
+    Task<DeliveryProof?> FindProofAsync(Guid shipmentId, CancellationToken cancellationToken);
+}
+
+public interface IDriverAssignmentStore
+{
+    /// <summary>The current active assignment for a driver, if any.</summary>
+    Task<Assignment?> FindCurrentForDriverAsync(Guid driverId, CancellationToken cancellationToken);
+
+    /// <summary>All assignments (any status) for a driver, newest first.</summary>
+    Task<PagedResult<AssignmentDto>> ListForDriverAsync(Guid driverId, int page, int pageSize, CancellationToken cancellationToken);
 }

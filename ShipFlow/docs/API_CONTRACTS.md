@@ -118,3 +118,70 @@ Extra errors: 409 `conflict` (duplicate plate/licence, user already in a company
 
 Cancelling a shipment (Phase 3 endpoint) releases its active assignment in the same commit, which frees the driver and vehicle.
 
+
+---
+
+## Phase 5 Endpoints
+
+### Driver Shipment Lifecycle (`/api/shipments/{id}/...`; Driver role only)
+
+All driver action endpoints require:
+- Valid JWT with `Driver` role.
+- Caller has an active membership (Driver) in the shipment's carrier company.
+- Caller has an active driver profile in that company.
+- Caller is the currently assigned driver for this shipment.
+
+| Method & path | Status transition | Notes |
+|---|---|---|
+| `POST /api/shipments/{id}/pickup` | `Assigned → PickedUp` | 404 if shipment not found or not assigned to caller. 409 if wrong status. |
+| `POST /api/shipments/{id}/start-transit` | `PickedUp → InTransit` | 409 if wrong status. |
+| `POST /api/shipments/{id}/deliver` | `InTransit → Delivered` | Body: `{ deliveredAtUtc, recipientName, notes?, signatureReference?, photoReference? }`. Atomically creates proof + delivers + completes assignment. 409 if proof already exists. 409 if wrong status. |
+| `POST /api/shipments/{id}/fail-delivery` | `InTransit → DeliveryFailed` | Body: `{ reason }` (1-500 chars). Assignment remains active. |
+| `POST /api/shipments/{id}/retry-delivery` | `DeliveryFailed → InTransit` | 409 if wrong status. |
+
+### GPS Tracking
+
+| Method & path | Who | Notes |
+|---|---|---|
+| `POST /api/tracking` | Driver | Body: `{ shipmentId, latitude, longitude, recordedAtUtc, speed?, heading?, accuracy?, altitude? }`. Per-user fixed-window rate limit (60/min). Idempotent by `(shipmentId, recordedAtUtc, userId)` — duplicates return 200 silently. 429 if rate limit exceeded. |
+| `GET /api/shipments/{id}/tracking/latest` | Shipment viewer (owner, carrier, admin) | Latest GPS point or 404. |
+| `GET /api/shipments/{id}/tracking?fromUtc&toUtc&page&pageSize` | Shipment viewer | Paginated tracking history. Optional time-range filter (UTC). |
+
+### Delivery Proof
+
+| Method & path | Who | Notes |
+|---|---|---|
+| `GET /api/shipments/{id}/delivery-proof` | Shipment viewer | 404 if not yet delivered or no proof. Returns `{ id, shipmentId, capturedByUserId, recipientName, deliveredAtUtc, receivedAtUtc, notes, signatureReference, photoReference }`. |
+
+### Driver Assignment Reads
+
+| Method & path | Who | Notes |
+|---|---|---|
+| `GET /api/driver/assignments/current` | Driver | Current active assignment for the calling driver. 404 if none. |
+| `GET /api/driver/assignments?page&pageSize` | Driver | Paginated assignment history for the calling driver. |
+
+### Payments (Paymob)
+
+| Method & path | Who | Notes |
+|---|---|---|
+| `POST /api/payments/initiate` | Customer | Body: `{ shipmentId }`. Returns `{ paymentUrl, orderId, iframeId }`. Shipment must have an accepted quote. |
+| `POST /api/payments/callback` | Paymob (anonymous) | Webhook. HMAC-SHA512 verification required; returns 403 if HMAC is invalid. Idempotent: same order ID processed only once. |
+| `GET /api/payments/callback` | Paymob redirect (anonymous) | Client redirect after payment; logs and acknowledges, no state change. |
+
+---
+
+## Error Code Reference
+
+| HTTP Status | `code` field | Cause |
+|---|---|---|
+| 400 | `validation` | FluentValidation failure; `errors` field lists per-field messages |
+| 400 | `invalid_state` | Domain state-machine violation (wrong status for the requested action) |
+| 401 | — | Missing or invalid JWT |
+| 403 | `forbidden` | Valid JWT but caller does not have the required role/permission |
+| 404 | `not_found` | Resource not found or not visible to the caller |
+| 409 | `conflict` | Unique constraint violation (duplicate plate, duplicate proof, etc.) |
+| 409 | `concurrency_conflict` | Row-version or app-lock race; retry the request |
+| 409 | `assignment_conflict` | Overlapping assignment window |
+| 422 | `capacity_exceeded` | Vehicle capacity insufficient for the cargo |
+| 429 | — | Rate limit exceeded; `Retry-After` header present |
+| 500 | `internal` | Unexpected server error; no internal details leaked |

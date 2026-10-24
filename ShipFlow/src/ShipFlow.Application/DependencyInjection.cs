@@ -5,8 +5,10 @@ using ShipFlow.Application.Features.Auth.Register;
 using ShipFlow.Application.Features.Companies;
 using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Fleet;
+using ShipFlow.Application.Features.Payments;
 using ShipFlow.Application.Features.Quotations;
 using ShipFlow.Application.Features.Shipments;
+using ShipFlow.Application.Features.Tracking;
 
 namespace ShipFlow.Application;
 
@@ -57,6 +59,21 @@ public static class DependencyInjection
         services.AddScoped<AssignShipmentHandler>();
         services.AddScoped<UnassignShipmentHandler>();
         services.AddScoped<GetShipmentAssignmentHandler>();
+
+        services.AddScoped<SubmitTrackingPointHandler>();
+        services.AddScoped<GetLatestTrackingHandler>();
+        services.AddScoped<GetTrackingHistoryHandler>();
+        services.AddScoped<PickUpShipmentHandler>();
+        services.AddScoped<StartTransitHandler>();
+        services.AddScoped<DeliverShipmentHandler>();
+        services.AddScoped<FailDeliveryHandler>();
+        services.AddScoped<RetryDeliveryHandler>();
+        services.AddScoped<GetDeliveryProofHandler>();
+        services.AddScoped<GetCurrentDriverAssignmentHandler>();
+        services.AddScoped<GetDriverAssignmentHistoryHandler>();
+
+        services.AddScoped<InitiatePaymentHandler>();
+        services.AddScoped<ProcessPaymentCallbackHandler>();
 
         return services;
     }

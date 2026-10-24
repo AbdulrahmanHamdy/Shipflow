@@ -36,7 +36,7 @@ public sealed class Vehicle : Entity
         }
 
         Type = type;
-        Capacity = Guard.NotNull(capacity, nameof(capacity));
+        Capacity = Guard.NotNull(capacity, nameof(capacity)) with { };
         IsActive = true;
     }
 
@@ -52,7 +52,7 @@ public sealed class Vehicle : Entity
     /// <summary>Whether the vehicle is in service at all. This is NOT booking availability.</summary>
     public bool IsActive { get; private set; }
 
-    public void UpdateCapacity(Capacity capacity) => Capacity = Guard.NotNull(capacity, nameof(capacity));
+    public void UpdateCapacity(Capacity capacity) => Capacity = Guard.NotNull(capacity, nameof(capacity)) with { };
 
     public void Deactivate() => IsActive = false;
 

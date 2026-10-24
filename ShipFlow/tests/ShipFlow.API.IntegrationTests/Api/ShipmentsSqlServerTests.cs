@@ -211,7 +211,9 @@ public class ShipmentsSqlServerTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Equal(1, search.GetProperty("totalCount").GetInt32());
 
         var marketplace = await As(w.DispatcherA).GetFromJsonAsync<JsonElement>("/api/shipments?scope=OpenForQuotes");
-        Assert.Equal(open, Assert.Single(marketplace.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+        // The marketplace shows ALL open shipments across all customers (other tests may have left some).
+        // Assert that OUR open shipment is among them, not that it's the only one.
+        Assert.Contains(marketplace.GetProperty("items").EnumerateArray(), item => item.GetProperty("id").GetGuid() == open);
         Assert.Equal(0, (await As(w.DispatcherA).GetFromJsonAsync<JsonElement>("/api/shipments")).GetProperty("totalCount").GetInt32());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await customer.GetAsync("/api/shipments?pageSize=1000")).StatusCode);

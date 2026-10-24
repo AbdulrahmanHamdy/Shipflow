@@ -54,7 +54,7 @@ public sealed class DeliveryProofConfiguration : IEntityTypeConfiguration<Delive
         builder.HasOne<Shipment>().WithMany().HasForeignKey(p => p.ShipmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.CapturedByUserId).OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(p => p.ShipmentId).HasDatabaseName("IX_DeliveryProofs_Shipment");
+        builder.HasIndex(p => p.ShipmentId).IsUnique().HasDatabaseName("UX_DeliveryProofs_Shipment");
     }
 }
 

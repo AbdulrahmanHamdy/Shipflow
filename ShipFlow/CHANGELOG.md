@@ -4,6 +4,29 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phase 5 — Tracking and Delivery (2026-10-24)
+
+#### Added
+- **Driver shipment lifecycle**: `pickup`, `start-transit`, `deliver`, `fail-delivery`, `retry-delivery` endpoints. Each verifies authenticated caller is the shipment's assigned driver via `DriverAccess` (membership + driver profile + active assignment, all checked against the DB on every request).
+- **Delivery proof**: `DeliverShipmentHandler` atomically creates `DeliveryProof`, transitions `Shipment → Delivered`, and completes the `Assignment` in a single `SaveChangesAsync`. Unique index `UX_DeliveryProofs_Shipment` prevents duplicate proof at the database level.
+- **GPS tracking**: `POST /api/tracking` (per-user fixed-window rate-limited, 60/min), `GET /api/shipments/{id}/tracking/latest`, `GET /api/shipments/{id}/tracking` (paginated, time-range filtered). Idempotent submission: duplicate `(shipmentId, recordedAtUtc, userId)` is silently dropped (D-029).
+- **Driver assignment reads**: `GET /api/driver/assignments/current`, `GET /api/driver/assignments` (paginated history).
+- **Paymob payment integration**: `InitiatePaymentHandler` (3-step API flow: auth token → order → payment key), `ProcessPaymentCallbackHandler` (HMAC-SHA512 verification, idempotent), `GET /api/payments/callback` redirect. Mock mode via `Paymob:UseMock` (D-030).
+- **SMTP email**: `IEmailSender` + `EmailMessage` in Application; `SmtpEmailSender` in Infrastructure with `[LoggerMessage]` source generation; no credentials or message content in logs (D-031).
+- **EF Core migration**: `InitialCreate` migration generated and applied. `SqlServerDatabaseFixture` uses `context.Database.MigrateAsync()`.
+- **Authorization updates**: `[AllowAnonymous]` on Paymob callback endpoints; `OnlyTheIntendedEndpoints_AreAnonymous` test updated to include both callback routes.
+
+#### Fixed
+- `DriverAccess.RequireAssignedDriverAsync` — was checking assignment before verifying the shipment belongs to the caller's company; reordered to check company membership → driver profile → shipment carrier match → active assignment.
+- `Deliver_DuplicateProof_ThrowsConflict` test — proof existence check is now performed before the driver/assignment authorization check, so the test correctly expects `ConflictException`.
+- `PickUp_UnauthorizedDriver_ThrowsForbidden` — test was calling `company.RegisterDriver` without first adding the user as a member; fixed by adding `company.AddMember(...)` before `RegisterDriver`.
+- `Concurrency_TwoSimultaneousDeliveries_OnlyOneWins` — used `Task.Run` with a `ManualResetEventSlim` gate for true concurrent start, ensuring both requests race in parallel.
+- `DriverAccess` status-aware overload added so `PickUp`, `StartTransit`, `FailDelivery`, and `RetryDelivery` handlers validate required status before calling domain method, returning `ConflictException` instead of `DomainException` for clearer HTTP 409 responses.
+
+#### Changed
+- `DriverAccess` now has a two-overload design: single-argument (assigns only) and a `(requiredStatus, ...)` overload that checks the status transition pre-condition.
+- `DeliverShipmentHandler` checks for existing proof *before* driver authorization to ensure idempotency-friendly conflict detection.
+
 ### Phase 4 — Fleet and Dispatching (2026-10-24)
 
 #### Added

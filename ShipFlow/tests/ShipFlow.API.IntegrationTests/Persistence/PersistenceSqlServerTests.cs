@@ -26,7 +26,7 @@ public class PersistenceSqlServerTests : IClassFixture<SqlServerDatabaseFixture>
         var (companyA, adminA) = NewCompany("Carrier A");
         var (companyB, adminB) = NewCompany("Carrier B");
         var shipment = NewShipment(customer.Id);
-        shipment.OpenForQuoting(customer.Id, Now);
+        shipment.OpenForQuoting(customer.Id, Now.AddMinutes(1));
         var q1 = shipment.SubmitQuote(companyA.Id, Money.Of(1500.1234m, "usd"), Now.AddHours(2), "Net 30", Now);
         shipment.SubmitQuote(companyB.Id, Money.Of(1400m, "EUR"), Now.AddHours(2), "Prepaid", Now);
         shipment.AcceptQuote(customer.Id, q1.Id, Now.AddMinutes(5));

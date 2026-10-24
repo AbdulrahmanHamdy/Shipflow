@@ -35,7 +35,8 @@ public sealed class UnitOfWork : IUnitOfWork
         ("UX_Drivers_Company_User", "This member already has a driver profile."),
         ("UX_CompanyMemberships_User_Active", "That user already belongs to a transport company."),
         ("UX_CompanyMemberships_Company_User_Active", "That user is already an active member of this company."),
-        ("UX_Assignments_Shipment_Active", "The shipment already has an active assignment.")
+        ("UX_Assignments_Shipment_Active", "The shipment already has an active assignment."),
+        ("UX_DeliveryProofs_Shipment", "A delivery proof has already been captured for this shipment.")
     ];
 
     private readonly AppDbContext _db;
