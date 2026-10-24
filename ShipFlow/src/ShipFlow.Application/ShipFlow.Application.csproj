@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ShipFlow.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provides DI/Configuration abstractions without a NuGet restore. See docs/DECISIONS.md (D-004). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShipFlow.Domain\ShipFlow.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

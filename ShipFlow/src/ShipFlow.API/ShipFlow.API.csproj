@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ShipFlow.API</RootNamespace>
+    <!-- Secrets for local development (Jwt:SigningKey, ConnectionStrings, Seed:DevPassword): `dotnet user-secrets`. -->
+    <UserSecretsId>shipflow-api-6f1d2c0e-7a58-4f55-9b0e-0d1a3c5e7f21</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+    <!-- Needed by `dotnet ef` (startup project). Not shipped with the app. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShipFlow.Application\ShipFlow.Application.csproj" />
+    <ProjectReference Include="..\ShipFlow.Infrastructure\ShipFlow.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

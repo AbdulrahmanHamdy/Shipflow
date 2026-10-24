@@ -1,0 +1,45 @@
+## .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+*.user
+*.suo
+*.userprefs
+
+## IDEs
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+## Test output
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+## Secrets and local configuration (never commit real values)
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+secrets.json
+*.pfx
+
+## Local databases and logs
+*.mdf
+*.ldf
+*.log
+logs/
+
+## OS
+.DS_Store
+Thumbs.db

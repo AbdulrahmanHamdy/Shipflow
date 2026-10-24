@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ShipFlow.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provides DI/Configuration abstractions without a NuGet restore. See docs/DECISIONS.md (D-004). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- EF Core 8 line, matched across all three packages. See docs/DECISIONS.md (D-013). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShipFlow.Application\ShipFlow.Application.csproj" />
+    <ProjectReference Include="..\ShipFlow.Domain\ShipFlow.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

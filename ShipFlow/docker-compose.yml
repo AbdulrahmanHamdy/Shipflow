@@ -1,0 +1,3 @@
+# Placeholder. The SQL Server and API services are added in Phase 9 (Deployment and Final Handoff).
+# Intentionally defines no services in Phase 0.
+services: {}
