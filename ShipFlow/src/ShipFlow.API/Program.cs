@@ -67,6 +67,16 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "ShipFlow Web API",
+    status = "Online",
+    version = "1.0.0",
+    documentation = "/swagger",
+    health = "/health",
+    frontend = "https://s-hipflow.vercel.app"
+})).AllowAnonymous();
+
 // Liveness: the process is up. No dependency checks, so an orchestrator does not restart the app for a database blip.
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {

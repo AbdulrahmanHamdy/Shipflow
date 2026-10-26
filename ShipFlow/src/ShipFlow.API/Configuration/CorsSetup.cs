@@ -7,8 +7,8 @@ public static class CorsSetup
     public const string PolicyName = "ShipFlowCors";
 
     /// <summary>
-    /// Allows only the origins listed in <c>Cors:AllowedOrigins</c>. With no origins configured, cross-origin
-    /// browser calls are refused. Credentials (cookies) are not allowed: the API uses bearer tokens.
+    /// Allows origins listed in <c>Cors:AllowedOrigins</c>, plus any *.vercel.app deployment or localhost.
+    /// Credentials (cookies) are not required: the API uses bearer tokens.
     /// </summary>
     public static IServiceCollection AddShipFlowCors(this IServiceCollection services)
     {
@@ -20,10 +20,34 @@ public static class CorsSetup
                 var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
                 cors.AddPolicy(PolicyName, policy =>
                 {
-                    if (origins.Length > 0)
-                    {
-                        policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
-                    }
+                    policy
+                        .SetIsOriginAllowed(origin =>
+                        {
+                            if (string.IsNullOrWhiteSpace(origin))
+                            {
+                                return false;
+                            }
+
+                            if (origins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+
+                            try
+                            {
+                                var uri = new Uri(origin);
+                                return uri.Host.EndsWith("vercel.app", StringComparison.OrdinalIgnoreCase)
+                                    || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                                    || uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                                    || uri.Host.EndsWith("runasp.net", StringComparison.OrdinalIgnoreCase);
+                            }
+                            catch
+                            {
+                                return false;
+                            }
+                        })
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
                 });
             });
 
