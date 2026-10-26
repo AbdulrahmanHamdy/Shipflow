@@ -1,0 +1,27 @@
+{
+  "name": "ShipFlow Logistics Platform",
+  "short_name": "ShipFlow",
+  "description": "Smart Logistics and Shipment Management Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B2A1F",
+  "theme_color": "#15803D",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

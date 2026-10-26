@@ -4,6 +4,7 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 publish/
+publish_output/
 *.user
 *.suo
 *.userprefs
@@ -31,8 +32,19 @@ coverage/
 .env.*
 !.env.example
 appsettings.*.local.json
+appsettings.Production.json
+*.Production.json
 secrets.json
 *.pfx
+*.publishsettings
+*.pubxml
+*.pubxml.user
+
+## Frontend build and dependencies
+node_modules/
+dist/
+.eslintcache
+*.tsbuildinfo
 
 ## Local databases and logs
 *.mdf
