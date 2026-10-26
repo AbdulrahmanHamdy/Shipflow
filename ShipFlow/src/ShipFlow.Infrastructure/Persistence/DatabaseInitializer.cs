@@ -63,15 +63,8 @@ public sealed partial class DatabaseInitializer
 
         if (options.SeedDevelopmentData)
         {
-            if (_environment.IsDevelopment())
-            {
-                await SeedDevelopmentUsersAsync();
-                await SeedDevelopmentCompanyAsync(cancellationToken);
-            }
-            else
-            {
-                LogDevSeedIgnored(_environment.EnvironmentName);
-            }
+            await SeedDevelopmentUsersAsync();
+            await SeedDevelopmentCompanyAsync(cancellationToken);
         }
     }
 
