@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Menu, LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +9,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobile }) => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -71,6 +73,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobile }) => {
                   onClick={() => {
                     setProfileOpen(false);
                     logout();
+                    navigate('/login', { replace: true });
                   }}
                   className="w-full justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                   leftIcon={<LogOut className="w-3.5 h-3.5" />}

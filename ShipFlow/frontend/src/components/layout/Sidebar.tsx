@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ShipFlowLogo, ShipFlowSymbol } from '@/components/brand';
 import {
@@ -47,6 +47,7 @@ const driverNav: NavItem[] = [
 ];
 
 export const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
   const { user, hasRole, logout } = useAuth();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -64,8 +65,21 @@ export const Sidebar: React.FC = () => {
     }
   }, [collapsed]);
 
-  const isCarrierStaff = hasRole('CompanyAdmin') || hasRole('Dispatcher');
-  const isDriver = hasRole('Driver');
+  const isPlatformAdmin = hasRole('PlatformAdmin');
+  const isCustomer = hasRole('Customer') || isPlatformAdmin;
+  const isCarrierStaff = hasRole('CompanyAdmin') || hasRole('Dispatcher') || isPlatformAdmin;
+  const isDriver = hasRole('Driver') || isPlatformAdmin;
+
+  const homeRoute = isDriver && !isCustomer
+    ? '/driver'
+    : (isCarrierStaff && !isCustomer) || isPlatformAdmin
+    ? '/carrier'
+    : '/app';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <aside
@@ -76,7 +90,7 @@ export const Sidebar: React.FC = () => {
     >
       {/* Brand Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-forest-border/80">
-        <NavLink to="/" className="flex items-center">
+        <NavLink to={homeRoute} className="flex items-center">
           {collapsed ? (
             <ShipFlowSymbol size={34} variant="dark" />
           ) : (
@@ -97,33 +111,35 @@ export const Sidebar: React.FC = () => {
       {/* Navigation Sections */}
       <div className="flex-1 py-4 px-3 space-y-6 overflow-y-auto">
         {/* Customer Nav */}
-        <div>
-          {!collapsed && (
-            <span className="px-3 text-[11px] font-bold uppercase tracking-wider text-emerald-500/70 block mb-2">
-              Customer Portal
-            </span>
-          )}
-          <nav className="space-y-1">
-            {customerNav.map((item) => (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                end={item.exact}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group',
-                    isActive
-                      ? 'bg-brand text-white shadow-sm font-semibold'
-                      : 'text-neutral-300 hover:text-white hover:bg-forest-deep'
-                  )
-                }
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:text-white transition-colors" />
-                {!collapsed && <span>{item.label}</span>}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
+        {isCustomer && (
+          <div>
+            {!collapsed && (
+              <span className="px-3 text-[11px] font-bold uppercase tracking-wider text-emerald-500/70 block mb-2">
+                Customer Portal
+              </span>
+            )}
+            <nav className="space-y-1">
+              {customerNav.map((item) => (
+                <NavLink
+                  key={item.href}
+                  to={item.href}
+                  end={item.exact}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group',
+                      isActive
+                        ? 'bg-brand text-white shadow-sm font-semibold'
+                        : 'text-neutral-300 hover:text-white hover:bg-forest-deep'
+                    )
+                  }
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:text-white transition-colors" />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        )}
 
         {/* Carrier Nav */}
         {isCarrierStaff && (
@@ -203,7 +219,7 @@ export const Sidebar: React.FC = () => {
             </div>
           )}
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-forest-surface rounded-lg transition-colors"
             title="Sign out"
             aria-label="Sign out"

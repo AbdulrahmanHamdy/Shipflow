@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ShipFlowLogo } from '@/components/brand';
 import { X, LayoutDashboard, Package, PlusCircle, Truck, Users, Building2, Navigation, CalendarDays, LogOut } from 'lucide-react';
@@ -11,9 +11,15 @@ interface MobileNavProps {
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { hasRole, logout } = useAuth();
 
   if (!isOpen) return null;
+
+  const isPlatformAdmin = hasRole('PlatformAdmin');
+  const isCustomer = hasRole('Customer') || isPlatformAdmin;
+  const isCarrierStaff = hasRole('CompanyAdmin') || hasRole('Dispatcher') || isPlatformAdmin;
+  const isDriver = hasRole('Driver') || isPlatformAdmin;
 
   return (
     <div className="fixed inset-0 z-50 md:hidden">
@@ -27,55 +33,57 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="flex-1 py-4 space-y-4 overflow-y-auto">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 block mb-2 px-2">
-              Customer
-            </span>
-            <div className="space-y-1">
-              <NavLink
-                to="/app"
-                end
-                onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
-                    isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
-                  )
-                }
-              >
-                <LayoutDashboard className="w-4 h-4 text-emerald-400" />
-                <span>Dashboard</span>
-              </NavLink>
-              <NavLink
-                to="/app/shipments"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
-                    isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
-                  )
-                }
-              >
-                <Package className="w-4 h-4 text-emerald-400" />
-                <span>Shipments</span>
-              </NavLink>
-              <NavLink
-                to="/app/shipments/new"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
-                    isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
-                  )
-                }
-              >
-                <PlusCircle className="w-4 h-4 text-emerald-400" />
-                <span>New Shipment</span>
-              </NavLink>
+          {isCustomer && (
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 block mb-2 px-2">
+                Customer
+              </span>
+              <div className="space-y-1">
+                <NavLink
+                  to="/app"
+                  end
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
+                      isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
+                    )
+                  }
+                >
+                  <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                  <span>Dashboard</span>
+                </NavLink>
+                <NavLink
+                  to="/app/shipments"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
+                      isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
+                    )
+                  }
+                >
+                  <Package className="w-4 h-4 text-emerald-400" />
+                  <span>Shipments</span>
+                </NavLink>
+                <NavLink
+                  to="/app/shipments/new"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
+                      isActive ? 'bg-brand text-white font-semibold' : 'text-neutral-300 hover:bg-forest-deep'
+                    )
+                  }
+                >
+                  <PlusCircle className="w-4 h-4 text-emerald-400" />
+                  <span>New Shipment</span>
+                </NavLink>
+              </div>
             </div>
-          </div>
+          )}
 
-          {(hasRole('CompanyAdmin') || hasRole('Dispatcher')) && (
+          {isCarrierStaff && (
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 block mb-2 px-2">
                 Carrier &amp; Dispatch
@@ -151,7 +159,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {hasRole('Driver') && (
+          {isDriver && (
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 block mb-2 px-2">
                 Driver Operations
@@ -207,6 +215,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
             onClick={() => {
               onClose();
               logout();
+              navigate('/login', { replace: true });
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-white hover:bg-red-950/40 rounded-xl transition-colors"
           >
