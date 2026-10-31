@@ -65,6 +65,14 @@ public sealed partial class DatabaseInitializer
         {
             await SeedDevelopmentUsersAsync();
             await SeedDevelopmentCompanyAsync(cancellationToken);
+            try
+            {
+                await new DemoDataSeeder(_db, _users, _time, _logger).SeedAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DemoDataSeeder encountered an unhandled exception: {Message}", ex.Message);
+            }
         }
     }
 

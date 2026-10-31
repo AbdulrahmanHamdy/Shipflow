@@ -92,7 +92,7 @@ public class AuthorizationPolicyTests : IClassFixture<ShipFlowApiFactory>
             .ToArray();
 
         Assert.Equal(
-            new[] { "/api/auth/login", "/api/auth/register", "/api/payments/callback", "/api/payments/callback", "/health", "/health/ready" },
+            new[] { "/", "/api/auth/login", "/api/auth/register", "/api/payments/callback", "/api/payments/callback", "/health", "/health/ready" },
             anonymous);
     }
 
