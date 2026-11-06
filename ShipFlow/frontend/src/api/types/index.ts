@@ -8,3 +8,4 @@ export * from './fleet';
 export * from './dispatch';
 export * from './tracking';
 export * from './payments';
+export * from './cargoAnalysis';

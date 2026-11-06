@@ -60,4 +60,7 @@ export const queryKeys = {
     currentAssignment: ['driver', 'assignments', 'current'] as const,
     history: (page?: number, pageSize?: number) => ['driver', 'assignments', 'history', page, pageSize] as const,
   },
+  cargo: {
+    analysis: (id: string) => ['cargo', 'analysis', id] as const,
+  },
 };

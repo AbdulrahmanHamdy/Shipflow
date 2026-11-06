@@ -3,6 +3,7 @@ using ShipFlow.Application.Features.Companies;
 using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Shipments;
 using ShipFlow.Application.Features.Tracking;
+using ShipFlow.Domain.CargoAnalysis;
 using ShipFlow.Domain.Companies;
 using ShipFlow.Domain.Dispatching;
 using ShipFlow.Domain.Fleet;
@@ -197,4 +198,11 @@ public interface IDriverAssignmentStore
 
     /// <summary>All assignments (any status) for a driver, newest first.</summary>
     Task<PagedResult<AssignmentDto>> ListForDriverAsync(Guid driverId, int page, int pageSize, CancellationToken cancellationToken);
+}
+
+public interface ICargoAnalysisStore
+{
+    Task AddAsync(CargoAnalysisSession session, CancellationToken cancellationToken);
+    Task<CargoAnalysisSession?> FindByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<CargoAnalysisSession?> FindForUpdateAsync(Guid id, CancellationToken cancellationToken);
 }

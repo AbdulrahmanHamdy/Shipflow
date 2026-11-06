@@ -59,6 +59,16 @@ internal static class Guard
         return value;
     }
 
+    public static int Positive(int value, string name)
+    {
+        if (value <= 0)
+        {
+            throw Invalid($"{name} must be greater than zero.");
+        }
+
+        return value;
+    }
+
     public static T NotNull<T>(T? value, string name) where T : class
     {
         return value ?? throw Invalid($"{name} is required.");

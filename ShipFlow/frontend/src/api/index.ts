@@ -10,3 +10,4 @@ export * from './fleetApi';
 export * from './dispatchApi';
 export * from './trackingApi';
 export * from './paymentsApi';
+export * from './cargoAnalysisApi';

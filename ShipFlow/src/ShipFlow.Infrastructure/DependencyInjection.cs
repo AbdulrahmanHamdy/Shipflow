@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Application.Common.Security;
+using ShipFlow.Infrastructure.CargoAnalysis;
 using ShipFlow.Infrastructure.Email;
 using ShipFlow.Infrastructure.Identity;
 using ShipFlow.Infrastructure.Payment;
@@ -68,6 +69,12 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITrackingStore, TrackingStore>();
         services.AddScoped<IDriverAssignmentStore, DriverAssignmentStore>();
+        services.AddScoped<ICargoAnalysisStore, CargoAnalysisStore>();
+        services.AddScoped<ICargoCalculationService, CargoCalculationService>();
+        services.AddScoped<IVehicleRecommendationService, VehicleRecommendationService>();
+
+        services.AddOptions<GeminiOptions>().BindConfiguration(GeminiOptions.SectionName);
+        services.AddHttpClient<ICargoAnalysisService, GeminiCargoAnalysisService>();
 
         services.AddOptions<EmailSettings>().BindConfiguration(EmailSettings.SectionName);
         services.AddScoped<IEmailSender, SmtpEmailSender>();

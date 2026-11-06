@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { useToast } from '@/components/ui/Toast';
-import { AppError } from '@/api/types';
-import { Plus, Trash2, MapPin, Package, Clock, ArrowRight, AlertTriangle, Sparkles } from 'lucide-react';
+import { AppError, VehicleRecommendationDto } from '@/api/types';
+import { SmartCargoEstimator } from '@/components/cargo/SmartCargoEstimator';
+import { Plus, Trash2, MapPin, Package, Clock, ArrowRight, AlertTriangle, Sparkles, Truck, CheckCircle2 } from 'lucide-react';
 
 const createShipmentSchema = z.object({
   reference: z.string().max(50, 'Reference cannot exceed 50 characters').optional(),
@@ -76,6 +77,19 @@ export const CreateShipmentPage: React.FC = () => {
   const createMutation = useCreateShipmentMutation();
 
   const [serverError, setServerError] = useState<string | null>(null);
+  const [appliedVehicle, setAppliedVehicle] = useState<VehicleRecommendationDto | null>(null);
+
+  const handleApplyCargoFromAi = (data: {
+    description: string;
+    weightKg: number;
+    volumeM3: number;
+    recommendedVehicle?: VehicleRecommendationDto;
+  }) => {
+    setValue('cargo.description', data.description, { shouldValidate: true });
+    setValue('cargo.weightKg', data.weightKg, { shouldValidate: true });
+    setValue('cargo.volumeM3', data.volumeM3, { shouldValidate: true });
+    setAppliedVehicle(data.recommendedVehicle || null);
+  };
 
   // Default time windows: tomorrow from 09:00Z to 17:00Z
   const tomorrow = new Date();
@@ -180,6 +194,9 @@ export const CreateShipmentPage: React.FC = () => {
         </div>
       )}
 
+      {/* AI Smart Cargo Estimator Tool */}
+      <SmartCargoEstimator onApplyCargo={handleApplyCargoFromAi} />
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Section 1: General & Cargo Specs */}
         <Card>
@@ -192,6 +209,27 @@ export const CreateShipmentPage: React.FC = () => {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {appliedVehicle && (
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-3">
+                <Truck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-emerald-950">
+                      Recommended Fleet Vehicle: {appliedVehicle.type} ({appliedVehicle.plateNumber})
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      {appliedVehicle.suitabilityRank}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-emerald-800">
+                    {appliedVehicle.reason}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
+                    Payload Weight Util: {appliedVehicle.weightUtilizationPercentage}% · Volume Util: {appliedVehicle.volumeUtilizationPercentage}%
+                  </p>
+                </div>
+              </div>
+            )}
             <FormField
               label="Shipment Reference (Optional)"
               hint="Custom business order or reference ID"

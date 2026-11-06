@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using ShipFlow.Application.Features.Auth.Login;
 using ShipFlow.Application.Features.Auth.Register;
+using ShipFlow.Application.Features.CargoAnalysis;
 using ShipFlow.Application.Features.Companies;
 using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Fleet;
@@ -74,6 +75,12 @@ public static class DependencyInjection
 
         services.AddScoped<InitiatePaymentHandler>();
         services.AddScoped<ProcessPaymentCallbackHandler>();
+
+        services.AddScoped<AnalyzeCargoImagesHandler>();
+        services.AddScoped<GetCargoAnalysisByIdHandler>();
+        services.AddScoped<UpdateCargoAnalysisItemsHandler>();
+        services.AddScoped<ConfirmCargoAnalysisHandler>();
+        services.AddScoped<RecommendVehiclesHandler>();
 
         return services;
     }

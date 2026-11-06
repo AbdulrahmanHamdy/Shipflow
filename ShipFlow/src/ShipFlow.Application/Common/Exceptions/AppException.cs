@@ -24,6 +24,18 @@ public sealed class ValidationFailedException : AppException
         Errors = errors;
     }
 
+    public ValidationFailedException(string field, string message)
+        : base("validation", message)
+    {
+        Errors = new Dictionary<string, string[]> { [field] = [message] };
+    }
+
+    public ValidationFailedException(string message)
+        : base("validation", message)
+    {
+        Errors = new Dictionary<string, string[]> { ["general"] = [message] };
+    }
+
     public IReadOnlyDictionary<string, string[]> Errors { get; }
 }
 

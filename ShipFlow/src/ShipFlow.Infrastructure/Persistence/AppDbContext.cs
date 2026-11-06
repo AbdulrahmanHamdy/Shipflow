@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using ShipFlow.Domain.CargoAnalysis;
 using ShipFlow.Domain.Companies;
 using ShipFlow.Domain.Dispatching;
 using ShipFlow.Domain.Fleet;
@@ -40,6 +41,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TrackingPoint> TrackingPoints => Set<TrackingPoint>();
 
     public DbSet<DeliveryProof> DeliveryProofs => Set<DeliveryProof>();
+
+    public DbSet<CargoAnalysisSession> CargoAnalysisSessions => Set<CargoAnalysisSession>();
+
+    public DbSet<CargoItem> CargoItems => Set<CargoItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
