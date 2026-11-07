@@ -229,6 +229,45 @@ public sealed class Shipment : Entity
             });
     }
 
+    // ---------------------------------------------------------------- driver matching dispatch
+
+    /// <summary>Accepted → SearchingForDriver. Carrier dispatcher broadcasts shipment to eligible drivers.</summary>
+    public void MarkSearchingForDriver(Guid actorUserId, DateTime nowUtc)
+    {
+        if (Status != ShipmentStatus.Accepted && Status != ShipmentStatus.SearchingForDriver)
+        {
+            throw new DomainException(
+                DomainErrorCodes.InvalidState,
+                $"Only an Accepted shipment can be opened for driver matching (current: {Status}).");
+        }
+
+        if (Status != ShipmentStatus.SearchingForDriver)
+        {
+            TransitionTo(
+                ShipmentStatus.SearchingForDriver,
+                actorUserId,
+                nowUtc,
+                new Dictionary<string, string> { ["action"] = "DispatchedForDriverMatching" });
+        }
+    }
+
+    /// <summary>SearchingForDriver → Accepted. Carrier dispatcher cancels matching broadcast.</summary>
+    public void CancelSearchingForDriver(Guid actorUserId, DateTime nowUtc)
+    {
+        if (Status != ShipmentStatus.SearchingForDriver)
+        {
+            throw new DomainException(
+                DomainErrorCodes.InvalidState,
+                $"Shipment is not searching for a driver (current: {Status}).");
+        }
+
+        TransitionTo(
+            ShipmentStatus.Accepted,
+            actorUserId,
+            nowUtc,
+            new Dictionary<string, string> { ["action"] = "CancelledDriverMatching" });
+    }
+
     // ---------------------------------------------------------------- assignment (via Assignment aggregate)
 
     /// <summary>Accepted → Assigned. Internal: callers must go through <c>Assignment.Create</c>.</summary>
@@ -316,7 +355,7 @@ public sealed class Shipment : Entity
         {
             case CancellationInitiator.Customer:
                 EnsureOwner(initiatorId);
-                RequireStatusIn(initiator, ShipmentStatus.Pending, ShipmentStatus.Quoting, ShipmentStatus.Accepted, ShipmentStatus.Assigned);
+                RequireStatusIn(initiator, ShipmentStatus.Pending, ShipmentStatus.Quoting, ShipmentStatus.Accepted, ShipmentStatus.SearchingForDriver, ShipmentStatus.Assigned);
                 break;
             case CancellationInitiator.Carrier:
                 if (CarrierCompanyId is null || CarrierCompanyId != initiatorId)
@@ -324,7 +363,7 @@ public sealed class Shipment : Entity
                     throw new DomainException(DomainErrorCodes.NotOwner, "Only the accepted carrier can cancel as a carrier.");
                 }
 
-                RequireStatusIn(initiator, ShipmentStatus.Accepted, ShipmentStatus.Assigned, ShipmentStatus.DeliveryFailed);
+                RequireStatusIn(initiator, ShipmentStatus.Accepted, ShipmentStatus.SearchingForDriver, ShipmentStatus.Assigned, ShipmentStatus.DeliveryFailed);
                 break;
             case CancellationInitiator.Platform:
                 break;

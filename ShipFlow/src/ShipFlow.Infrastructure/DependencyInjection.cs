@@ -10,7 +10,9 @@ using Microsoft.IdentityModel.Tokens;
 using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Application.Common.Security;
 using ShipFlow.Infrastructure.CargoAnalysis;
+using ShipFlow.Infrastructure.Dispatching;
 using ShipFlow.Infrastructure.Email;
+using ShipFlow.Infrastructure.Hubs;
 using ShipFlow.Infrastructure.Identity;
 using ShipFlow.Infrastructure.Payment;
 using ShipFlow.Infrastructure.Persistence;
@@ -72,6 +74,10 @@ public static class DependencyInjection
         services.AddScoped<ICargoAnalysisStore, CargoAnalysisStore>();
         services.AddScoped<ICargoCalculationService, CargoCalculationService>();
         services.AddScoped<IVehicleRecommendationService, VehicleRecommendationService>();
+
+        services.AddSignalR();
+        services.AddScoped<IDispatchNotifier, SignalRDispatchNotifier>();
+        services.AddScoped<IDriverMatchingService, DriverMatchingService>();
 
         services.AddOptions<GeminiOptions>().BindConfiguration(GeminiOptions.SectionName);
         services.AddHttpClient<ICargoAnalysisService, GeminiCargoAnalysisService>();
@@ -155,6 +161,20 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.FromSeconds(jwt.ClockSkewSeconds),
                     NameClaimType = ClaimNames.Subject,
                     RoleClaimType = ClaimNames.Role
+                };
+
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
     }

@@ -7,6 +7,8 @@ export interface DriverDto {
   fullName: string;
   licenseNumber: string;
   isActive: boolean;
+  isAvailable?: boolean;
+  assignedVehicleId?: string | null;
   createdAtUtc?: string;
 }
 

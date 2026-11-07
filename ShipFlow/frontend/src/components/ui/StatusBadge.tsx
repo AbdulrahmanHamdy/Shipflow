@@ -5,6 +5,7 @@ import {
   Clock,
   MessageSquare,
   CheckCircle2,
+  Radio,
   UserCheck,
   PackageCheck,
   Truck,
@@ -44,6 +45,12 @@ const statusConfigs: Record<ShipmentStatus, StatusConfig> = {
     icon: CheckCircle2,
     badgeClass: 'bg-sky-50 text-sky-800 border-sky-200',
     iconClass: 'text-sky-600',
+  },
+  SearchingForDriver: {
+    label: 'Searching for Driver',
+    icon: Radio,
+    badgeClass: 'bg-amber-100 text-amber-900 border-amber-300 font-semibold',
+    iconClass: 'text-amber-600 animate-pulse',
   },
   Assigned: {
     label: 'Assigned to Driver',

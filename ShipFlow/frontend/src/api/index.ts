@@ -11,3 +11,4 @@ export * from './dispatchApi';
 export * from './trackingApi';
 export * from './paymentsApi';
 export * from './cargoAnalysisApi';
+export * from './driverPortalApi';

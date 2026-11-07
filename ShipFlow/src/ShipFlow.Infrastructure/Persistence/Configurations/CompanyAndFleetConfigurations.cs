@@ -68,13 +68,17 @@ public sealed class DriverConfiguration : IEntityTypeConfiguration<Driver>
         builder.Property(d => d.FullName).HasMaxLength(Driver.MaxNameLength).IsRequired();
         builder.Property(d => d.LicenseNumber).HasMaxLength(Driver.MaxLicenseLength).IsRequired();
         builder.Property(d => d.IsActive).IsRequired();
+        builder.Property(d => d.IsAvailable).HasDefaultValue(true).IsRequired();
+        builder.Property(d => d.AssignedVehicleId).IsRequired(false);
 
         builder.HasOne<TransportCompany>().WithMany().HasForeignKey(d => d.CompanyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Vehicle>().WithMany().HasForeignKey(d => d.AssignedVehicleId).OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(d => new { d.CompanyId, d.UserId }).IsUnique().HasDatabaseName("UX_Drivers_Company_User");
         builder.HasIndex(d => new { d.CompanyId, d.LicenseNumber }).IsUnique().HasDatabaseName("UX_Drivers_Company_License");
         builder.HasIndex(d => d.UserId).HasDatabaseName("IX_Drivers_User");
+        builder.HasIndex(d => d.AssignedVehicleId).HasDatabaseName("IX_Drivers_AssignedVehicle");
     }
 }
 

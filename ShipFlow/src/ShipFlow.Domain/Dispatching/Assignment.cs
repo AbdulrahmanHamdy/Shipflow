@@ -115,11 +115,11 @@ public sealed class Assignment : Entity
         ArgumentNullException.ThrowIfNull(existingAssignments);
         Guard.Utc(nowUtc, nameof(nowUtc));
 
-        if (shipment.Status != ShipmentStatus.Accepted || shipment.CarrierCompanyId is null)
+        if ((shipment.Status != ShipmentStatus.Accepted && shipment.Status != ShipmentStatus.SearchingForDriver) || shipment.CarrierCompanyId is null)
         {
             throw new DomainException(
                 DomainErrorCodes.InvalidState,
-                $"Only an Accepted shipment can be assigned (current: {shipment.Status}).");
+                $"Only an Accepted or SearchingForDriver shipment can be assigned (current: {shipment.Status}).");
         }
 
         var companyId = shipment.CarrierCompanyId.Value;

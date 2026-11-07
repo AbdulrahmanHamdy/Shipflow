@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShipFlow.Application.Common.Exceptions;
+using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Application.Common.Models;
 using ShipFlow.Application.Common.Security;
+using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Fleet;
+using ShipFlow.Application.Features.Shipments;
 
 namespace ShipFlow.API.Controllers;
 
@@ -56,4 +60,20 @@ public sealed class DriversController : ControllerBase
     public async Task<ActionResult<DriverDto>> Deactivate(
         Guid id, [FromServices] DriverActivationHandler handler, CancellationToken ct) =>
         Ok(await handler.DeactivateAsync(id, ct));
+
+    /// <summary>Assigns or unassigns an active fleet vehicle to a driver.</summary>
+    [HttpPut("{id:guid}/vehicle")]
+    [Authorize(Policy = Policies.RequireDispatcher)]
+    public async Task<IActionResult> AssignVehicle(
+        Guid id,
+        [FromBody] AssignDriverVehicleCommand command,
+        [FromServices] ViewerResolver viewers,
+        [FromServices] IDriverMatchingService service,
+        CancellationToken ct)
+    {
+        var viewer = await viewers.ResolveAsync(ct);
+        if (viewer.CompanyId == null) throw new ForbiddenException("Company staff required.");
+        await service.AssignDriverVehicleAsync(viewer.CompanyId.Value, id, command.VehicleId, ct);
+        return NoContent();
+    }
 }

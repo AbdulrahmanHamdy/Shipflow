@@ -21,7 +21,13 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { AppError } from '@/api/types';
 import { formatDateTime, formatWeight, formatVolume } from '@/lib/formatters';
-import { Truck, Users, Clock, ShieldCheck, ArrowRight, UserCheck, AlertOctagon, RotateCcw } from 'lucide-react';
+import { Truck, Users, Clock, ShieldCheck, ArrowRight, UserCheck, AlertOctagon, RotateCcw, Radio, Check, Wifi } from 'lucide-react';
+import {
+  useMatchingStatusQuery,
+  useDispatchMatchingMutation,
+  useCancelDispatchMutation,
+} from '@/features/carrier/matchingHooks';
+import { useDispatchHub } from '@/hooks/useDispatchHub';
 
 export const CarrierDispatchPage: React.FC = () => {
   const { shipmentId } = useParams<{ shipmentId: string }>();
@@ -46,6 +52,44 @@ export const CarrierDispatchPage: React.FC = () => {
 
   const assignMutation = useAssignShipmentMutation();
   const unassignMutation = useUnassignShipmentMutation();
+
+  // Real-time dispatch hub
+  useDispatchHub();
+
+  const isSearching = shipment?.status === 'SearchingForDriver';
+  const { data: matchingStatus, refetch: refetchMatchingStatus } = useMatchingStatusQuery(
+    shipmentId || '',
+    isSearching || shipment?.status === 'Accepted'
+  );
+
+  const dispatchMatchingMutation = useDispatchMatchingMutation();
+  const cancelDispatchMutation = useCancelDispatchMutation();
+
+  const handleDispatchMatching = async () => {
+    if (!shipmentId) return;
+    try {
+      await dispatchMatchingMutation.mutateAsync(shipmentId);
+      toast.success('Dispatched to Drivers', 'Eligible drivers have been notified and can accept this shipment.');
+      refetchShipment();
+      refetchMatchingStatus();
+    } catch (err: unknown) {
+      const appErr = err as AppError;
+      toast.error('Dispatch failed', appErr.message || 'Could not start driver matching.');
+    }
+  };
+
+  const handleCancelDispatchMatching = async () => {
+    if (!shipmentId) return;
+    try {
+      await cancelDispatchMutation.mutateAsync(shipmentId);
+      toast.success('Matching Cancelled', 'Shipment is no longer broadcast to drivers.');
+      refetchShipment();
+      refetchMatchingStatus();
+    } catch (err: unknown) {
+      const appErr = err as AppError;
+      toast.error('Cancel failed', appErr.message || 'Could not cancel matching.');
+    }
+  };
 
   // Initialize windows from shipment pickup stop
   useEffect(() => {
@@ -196,6 +240,137 @@ export const CarrierDispatchPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Searching For Driver (Uber-Style Live Matching) */}
+      {shipment.status === 'SearchingForDriver' && !activeAssignment && (
+        <Card className="border-2 border-amber-400 bg-white shadow-panel overflow-hidden">
+          <div className="bg-amber-500 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-full bg-white/20">
+                <Radio className="w-6 h-6 animate-pulse text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-sm uppercase tracking-wider">
+                    BROADCASTING DISPATCH
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white text-amber-900">
+                    Live
+                  </span>
+                </div>
+                <p className="text-xs text-amber-100 mt-0.5">
+                  Shipment is open to all eligible drivers indefinitely until accepted. No timeout expiration.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs shrink-0"
+              onClick={handleCancelDispatchMatching}
+              isLoading={cancelDispatchMutation.isPending}
+            >
+              Cancel Matching
+            </Button>
+          </div>
+
+          <CardContent className="p-6 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div className="p-3.5 rounded-xl bg-neutral-appBg border border-neutral-border">
+                <span className="text-neutral-secondary block text-[11px] mb-1">Eligible Drivers</span>
+                <span className="text-2xl font-black text-neutral-primary">
+                  {matchingStatus?.eligibleDriversCount ?? 0}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-neutral-appBg border border-neutral-border">
+                <span className="text-neutral-secondary block text-[11px] mb-1">Drivers Notified</span>
+                <span className="text-2xl font-black text-neutral-primary">
+                  {matchingStatus?.notifiedDriversCount ?? 0}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-neutral-appBg border border-neutral-border">
+                <span className="text-neutral-secondary block text-[11px] mb-1">Required Vehicle Type</span>
+                <span className="text-2xl font-black text-brand">
+                  {matchingStatus?.requiredVehicleType || 'Auto-fit'}
+                </span>
+              </div>
+            </div>
+
+            {/* Eligible drivers table/list */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-primary flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-brand" /> Drivers Eligible for this Consignment
+              </h4>
+
+              {matchingStatus?.eligibleDrivers && matchingStatus.eligibleDrivers.length > 0 ? (
+                <div className="divide-y divide-neutral-border border border-neutral-border rounded-xl overflow-hidden bg-white">
+                  {matchingStatus.eligibleDrivers.map((driver) => (
+                    <div
+                      key={driver.driverId}
+                      className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-neutral-appBg/50 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-neutral-primary">{driver.fullName}</span>
+                          <span className="font-mono text-[11px] text-neutral-secondary">
+                            ({driver.licenseNumber})
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-neutral-secondary block mt-0.5">
+                          Vehicle: <strong className="text-neutral-primary">{driver.vehiclePlate || 'Assigned'}</strong> ({driver.vehicleType}) &bull; Capacity: {driver.vehicleMaxWeightKg} kg / {driver.vehicleMaxVolumeM3} m³
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          Visible in Driver App
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-5 rounded-xl bg-amber-50/50 border border-amber-200 text-xs text-amber-800 text-center">
+                  No drivers are currently online with a matching vehicle. As soon as a matching driver comes online or finishes an active trip, this shipment will instantly become visible to them.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Broadcast Dispatch Option for Accepted Shipments */}
+      {shipment.status === 'Accepted' && !activeAssignment && (
+        <Card className="border-2 border-brand bg-brand/5 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-brand text-white">
+                  <Radio className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle>Uber-Style Driver Matching (Instant Broadcast)</CardTitle>
+                  <CardDescription>
+                    Broadcast this shipment to all eligible company drivers matching cargo requirements. First to accept takes the job.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardFooter className="pt-2">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleDispatchMatching}
+              isLoading={dispatchMatchingMutation.isPending}
+              leftIcon={<Radio className="w-4 h-4" />}
+            >
+              Broadcast Dispatch to Eligible Drivers
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
       {/* Active Assignment Display */}
       {activeAssignment ? (
         <Card className="border-2 border-emerald-300 bg-emerald-50/20">
@@ -240,9 +415,9 @@ export const CarrierDispatchPage: React.FC = () => {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Assign Driver &amp; Vehicle</CardTitle>
+              <CardTitle>Manual Driver &amp; Vehicle Assignment</CardTitle>
               <CardDescription>
-                Select execution window to filter available carrier resources without overlapping commitments
+                Alternatively, directly select and lock a specific driver and vehicle for a scheduled window
               </CardDescription>
             </div>
           </CardHeader>

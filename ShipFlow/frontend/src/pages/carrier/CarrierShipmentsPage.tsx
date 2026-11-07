@@ -17,7 +17,7 @@ import { FormField } from '@/components/ui/FormField';
 import { Input, Textarea } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatWeight, formatCurrency } from '@/lib/formatters';
-import { Send, Truck, ArrowRight, Clock, CheckCircle2, Navigation } from 'lucide-react';
+import { Send, Truck, ArrowRight, Clock, CheckCircle2, Navigation, Radio } from 'lucide-react';
 
 export const CarrierShipmentsPage: React.FC = () => {
   usePageTitle('Carrier Shipment Board');
@@ -211,6 +211,18 @@ export const CarrierShipmentsPage: React.FC = () => {
                               leftIcon={<Truck className="w-3 h-3" />}
                             >
                               <Link to={`/carrier/dispatch/${s.id}`}>Dispatch</Link>
+                            </Button>
+                          )}
+
+                          {s.status === 'SearchingForDriver' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              asChild
+                              className="h-7 text-xs border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100"
+                              leftIcon={<Radio className="w-3 h-3 text-amber-600 animate-pulse" />}
+                            >
+                              <Link to={`/carrier/dispatch/${s.id}`}>Matching...</Link>
                             </Button>
                           )}
 

@@ -26,6 +26,7 @@ public sealed class Driver : Entity
         FullName = Guard.NotBlank(fullName, nameof(fullName), MaxNameLength);
         LicenseNumber = Guard.NotBlank(licenseNumber, nameof(licenseNumber), MaxLicenseLength).ToUpperInvariant();
         IsActive = true;
+        IsAvailable = true;
     }
 
     public Guid CompanyId { get; }
@@ -40,11 +41,26 @@ public sealed class Driver : Entity
     /// <summary>Whether the driver is employed/usable at all. This is NOT booking availability.</summary>
     public bool IsActive { get; private set; }
 
+    /// <summary>Currently assigned vehicle for automated dispatch and matching.</summary>
+    public Guid? AssignedVehicleId { get; private set; }
+
+    /// <summary>Whether the driver is online and ready to accept open dispatched shipments.</summary>
+    public bool IsAvailable { get; private set; }
+
     public void UpdateDetails(string fullName, string licenseNumber)
     {
         FullName = Guard.NotBlank(fullName, nameof(fullName), MaxNameLength);
         LicenseNumber = Guard.NotBlank(licenseNumber, nameof(licenseNumber), MaxLicenseLength).ToUpperInvariant();
     }
+
+    public void AssignVehicle(Guid vehicleId)
+    {
+        AssignedVehicleId = Guard.NotEmpty(vehicleId, nameof(vehicleId));
+    }
+
+    public void UnassignVehicle() => AssignedVehicleId = null;
+
+    public void SetAvailable(bool available) => IsAvailable = available;
 
     public void Deactivate() => IsActive = false;
 

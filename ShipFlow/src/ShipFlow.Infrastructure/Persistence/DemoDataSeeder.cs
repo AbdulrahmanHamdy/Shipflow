@@ -103,6 +103,12 @@ public sealed class DemoDataSeeder
         var vehTruck = await EnsureVehicleAsync(demoCompany, "DEMO-TRUCK-03", VehicleType.Truck, Capacity.Of(12_000m, 75m), cancellationToken);
         var vehTrailer = await EnsureVehicleAsync(demoCompany, "DEMO-TRAILER-04", VehicleType.Trailer, Capacity.Of(24_000m, 110m), cancellationToken);
 
+        // Assign default fleet vehicles and ensure drivers are available for dispatch
+        drv1.AssignVehicle(veh1.Id); drv1.SetAvailable(true);
+        drv2.AssignVehicle(vehVan.Id); drv2.SetAvailable(true);
+        drv3.AssignVehicle(vehPickup.Id); drv3.SetAvailable(true);
+        drv4.AssignVehicle(vehTruck.Id); drv4.SetAvailable(true);
+
         // 3. Apex Freight Lines company & fleet
         var apexCompany = await _db.TransportCompanies
             .Include(c => c.Memberships)
@@ -120,6 +126,10 @@ public sealed class DemoDataSeeder
         var apexDrvProfile = await EnsureDriverProfileAsync(apexCompany, apexDriver.Id, "Omar Zaid", "APEX-DRV-2001", cancellationToken);
         var apexVehTruck = await EnsureVehicleAsync(apexCompany, "APEX-TRK-101", VehicleType.Truck, Capacity.Of(15_000m, 80m), cancellationToken);
         var apexVehVan = await EnsureVehicleAsync(apexCompany, "APEX-VAN-102", VehicleType.Van, Capacity.Of(2_000m, 15m), cancellationToken);
+
+        apexDrvProfile.AssignVehicle(apexVehTruck.Id);
+        apexDrvProfile.SetAvailable(true);
+        await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Creating realistic shipments and tracking lifecycles...");
 

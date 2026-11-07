@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Application.Common.Security;
 using ShipFlow.Application.Features.Dispatching;
 using ShipFlow.Application.Features.Fleet;
@@ -8,9 +9,8 @@ using ShipFlow.Application.Features.Shipments;
 namespace ShipFlow.API.Controllers;
 
 /// <summary>
-/// Dispatching: which resources are free for a shipment, assigning them, and releasing them. Only an administrator or
-/// dispatcher of the shipment's carrier company may call these; for anyone else the shipment, driver and vehicle simply do
-/// not exist (404). The shipment status changes only as a consequence of assign/unassign, never directly.
+/// Dispatching: which resources are free for a shipment, assigning them, releasing them, and persistent Uber-style matching.
+/// Only an administrator or dispatcher of the shipment's carrier company may call these.
 /// </summary>
 [ApiController]
 [Route("api/shipments/{shipmentId:guid}")]
@@ -56,4 +56,40 @@ public sealed class ShipmentAssignmentsController : ControllerBase
     public async Task<ActionResult<ShipmentDetailsDto>> Unassign(
         Guid shipmentId, [FromBody] UnassignShipmentCommand command, [FromServices] UnassignShipmentHandler handler, CancellationToken ct) =>
         Ok(await handler.HandleAsync(shipmentId, command, ct));
+
+    /// <summary>Gets the current matching status, eligible drivers, and assigned driver for this shipment.</summary>
+    [HttpGet("matching-status")]
+    public async Task<ActionResult<MatchingStatusDto>> GetMatchingStatus(
+        Guid shipmentId,
+        [FromServices] IDriverMatchingService service,
+        [FromServices] ViewerResolver viewers,
+        CancellationToken ct)
+    {
+        var viewer = await viewers.ResolveAsync(ct);
+        return Ok(await service.GetMatchingStatusAsync(shipmentId, viewer, ct));
+    }
+
+    /// <summary>Initiates persistent Uber-style matching: broadcast to all eligible available drivers until accepted.</summary>
+    [HttpPost("dispatch-matching")]
+    public async Task<ActionResult<MatchingStatusDto>> DispatchMatching(
+        Guid shipmentId,
+        [FromServices] IDriverMatchingService service,
+        [FromServices] ViewerResolver viewers,
+        CancellationToken ct)
+    {
+        var viewer = await viewers.ResolveAsync(ct);
+        return Ok(await service.DispatchForMatchingAsync(shipmentId, viewer, ct));
+    }
+
+    /// <summary>Cancels ongoing driver matching dispatch, returning shipment to Accepted status.</summary>
+    [HttpPost("cancel-dispatch-matching")]
+    public async Task<ActionResult<MatchingStatusDto>> CancelDispatchMatching(
+        Guid shipmentId,
+        [FromServices] IDriverMatchingService service,
+        [FromServices] ViewerResolver viewers,
+        CancellationToken ct)
+    {
+        var viewer = await viewers.ResolveAsync(ct);
+        return Ok(await service.CancelDispatchMatchingAsync(shipmentId, viewer, ct));
+    }
 }

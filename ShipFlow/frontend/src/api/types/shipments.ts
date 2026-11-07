@@ -4,6 +4,7 @@ export type ShipmentStatus =
   | 'Pending'
   | 'Quoting'
   | 'Accepted'
+  | 'SearchingForDriver'
   | 'Assigned'
   | 'PickedUp'
   | 'InTransit'

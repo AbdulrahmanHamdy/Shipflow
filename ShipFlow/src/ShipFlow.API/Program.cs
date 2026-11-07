@@ -5,6 +5,7 @@ using ShipFlow.API.Middleware;
 using ShipFlow.Application;
 using ShipFlow.Application.Common.Interfaces;
 using ShipFlow.Infrastructure;
+using ShipFlow.Infrastructure.Hubs;
 using ShipFlow.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +67,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<DispatchHub>("/hubs/dispatch");
 
 app.MapGet("/", () => Results.Ok(new
 {

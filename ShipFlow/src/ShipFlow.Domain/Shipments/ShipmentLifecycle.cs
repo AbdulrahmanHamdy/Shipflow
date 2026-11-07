@@ -7,8 +7,9 @@ public static class ShipmentLifecycle
     {
         [ShipmentStatus.Pending] = [ShipmentStatus.Quoting, ShipmentStatus.Cancelled],
         [ShipmentStatus.Quoting] = [ShipmentStatus.Accepted, ShipmentStatus.Cancelled],
-        [ShipmentStatus.Accepted] = [ShipmentStatus.Assigned, ShipmentStatus.Cancelled],
-        [ShipmentStatus.Assigned] = [ShipmentStatus.Accepted, ShipmentStatus.PickedUp, ShipmentStatus.Cancelled],
+        [ShipmentStatus.Accepted] = [ShipmentStatus.SearchingForDriver, ShipmentStatus.Assigned, ShipmentStatus.Cancelled],
+        [ShipmentStatus.SearchingForDriver] = [ShipmentStatus.Assigned, ShipmentStatus.Accepted, ShipmentStatus.Cancelled],
+        [ShipmentStatus.Assigned] = [ShipmentStatus.Accepted, ShipmentStatus.SearchingForDriver, ShipmentStatus.PickedUp, ShipmentStatus.Cancelled],
         [ShipmentStatus.PickedUp] = [ShipmentStatus.InTransit, ShipmentStatus.DeliveryFailed],
         [ShipmentStatus.InTransit] = [ShipmentStatus.Delivered, ShipmentStatus.DeliveryFailed],
         [ShipmentStatus.DeliveryFailed] = [ShipmentStatus.InTransit, ShipmentStatus.Cancelled],

@@ -10,5 +10,6 @@ public enum ShipmentStatus
     InTransit = 5,
     DeliveryFailed = 6,
     Delivered = 7,
-    Cancelled = 8
+    Cancelled = 8,
+    SearchingForDriver = 9
 }

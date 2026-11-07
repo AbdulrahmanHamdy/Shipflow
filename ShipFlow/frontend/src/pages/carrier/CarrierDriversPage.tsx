@@ -6,7 +6,9 @@ import {
   useActivateDriverMutation,
   useDeactivateDriverMutation,
   useCompanyMembersQuery,
+  useVehiclesListQuery,
 } from '@/features/carrier/hooks';
+import { useAssignDriverVehicleMutation } from '@/features/carrier/matchingHooks';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { DriverDto, AppError } from '@/api/types';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -21,7 +23,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useToast } from '@/components/ui/Toast';
-import { Users, Plus, Edit2, ShieldCheck, Power } from 'lucide-react';
+import { Users, Plus, Edit2, ShieldCheck, Power, Truck } from 'lucide-react';
 
 export const CarrierDriversPage: React.FC = () => {
   usePageTitle('Company Drivers');
@@ -31,11 +33,14 @@ export const CarrierDriversPage: React.FC = () => {
 
   const { data, isLoading, isError, error, refetch } = useDriversListQuery({ page, pageSize });
   const { data: members = [] } = useCompanyMembersQuery();
+  const { data: vehiclesData } = useVehiclesListQuery({ pageSize: 100 });
+  const vehicles = vehiclesData?.items || [];
 
   const registerMutation = useRegisterDriverMutation();
   const updateMutation = useUpdateDriverMutation();
   const activateMutation = useActivateDriverMutation();
   const deactivateMutation = useDeactivateDriverMutation();
+  const assignVehicleMutation = useAssignDriverVehicleMutation();
 
   // Eligible members for driver profile creation: members with role 'Driver'
   const driverMembers = members.filter((m) => m.role === 'Driver' && m.isActive);
@@ -43,6 +48,8 @@ export const CarrierDriversPage: React.FC = () => {
   // Modals
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [editModalDriver, setEditModalDriver] = useState<DriverDto | null>(null);
+  const [vehicleModalDriver, setVehicleModalDriver] = useState<DriverDto | null>(null);
+  const [assignedVehicleId, setAssignedVehicleId] = useState('');
 
   // Register form
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -102,6 +109,32 @@ export const CarrierDriversPage: React.FC = () => {
     } catch (err: unknown) {
       const appErr = err as AppError;
       toast.error('Update failed', appErr.message);
+    }
+  };
+
+  const handleOpenVehicleModal = (d: DriverDto) => {
+    setVehicleModalDriver(d);
+    setAssignedVehicleId(d.assignedVehicleId || '');
+  };
+
+  const handleSaveVehicle = async () => {
+    if (!vehicleModalDriver) return;
+    try {
+      await assignVehicleMutation.mutateAsync({
+        driverId: vehicleModalDriver.id,
+        command: { vehicleId: assignedVehicleId ? assignedVehicleId : null },
+      });
+      toast.success(
+        'Vehicle Assigned',
+        assignedVehicleId
+          ? `Vehicle assigned to ${vehicleModalDriver.fullName}.`
+          : `Vehicle unassigned from ${vehicleModalDriver.fullName}.`
+      );
+      setVehicleModalDriver(null);
+      refetch();
+    } catch (err: unknown) {
+      const appErr = err as AppError;
+      toast.error('Vehicle assignment failed', appErr.message);
     }
   };
 
@@ -173,6 +206,7 @@ export const CarrierDriversPage: React.FC = () => {
                     <TableHead>Full Name</TableHead>
                     <TableHead>License Number</TableHead>
                     <TableHead>User Account ID</TableHead>
+                    <TableHead>Assigned Vehicle</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -189,6 +223,17 @@ export const CarrierDriversPage: React.FC = () => {
                       <TableCell className="font-mono text-[11px] text-neutral-secondary">
                         {d.userId.substring(0, 16)}...
                       </TableCell>
+                      <TableCell className="text-xs">
+                        {d.assignedVehicleId ? (
+                          <span className="font-semibold text-neutral-primary flex items-center gap-1">
+                            <Truck className="w-3.5 h-3.5 text-brand" />
+                            {vehicles.find((v) => v.id === d.assignedVehicleId)?.plateNumber ||
+                              'Assigned'}
+                          </span>
+                        ) : (
+                          <span className="text-neutral-secondary italic">None</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
@@ -202,6 +247,15 @@ export const CarrierDriversPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => handleOpenVehicleModal(d)}
+                            leftIcon={<Truck className="w-3 h-3" />}
+                          >
+                            Vehicle
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -349,6 +403,46 @@ export const CarrierDriversPage: React.FC = () => {
               isLoading={updateMutation.isPending}
             >
               Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Assign Vehicle Modal */}
+      <Modal
+        isOpen={!!vehicleModalDriver}
+        onClose={() => setVehicleModalDriver(null)}
+        title="Assign Fleet Vehicle"
+        description={`Select a registered vehicle to link with ${vehicleModalDriver?.fullName}. This vehicle will be used for automatic shipment matching.`}
+      >
+        <div className="space-y-4">
+          <FormField label="Assigned Vehicle" htmlFor="vehicleSelect">
+            <select
+              id="vehicleSelect"
+              className="w-full text-xs rounded-xl border border-neutral-border p-2.5 bg-white text-neutral-primary focus:ring-brand focus:border-brand"
+              value={assignedVehicleId}
+              onChange={(e) => setAssignedVehicleId(e.target.value)}
+            >
+              <option value="">-- No vehicle assigned (Unassign) --</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.plateNumber} ({v.type}) — Max: {v.maxWeightKg} kg / {v.maxVolumeM3} m³
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-border">
+            <Button variant="outline" size="sm" onClick={() => setVehicleModalDriver(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveVehicle}
+              isLoading={assignVehicleMutation.isPending}
+            >
+              Save Assignment
             </Button>
           </div>
         </div>

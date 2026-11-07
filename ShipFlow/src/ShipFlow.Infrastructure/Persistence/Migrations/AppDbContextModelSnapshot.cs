@@ -390,6 +390,9 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AssignedVehicleId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -401,6 +404,11 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("LicenseNumber")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -410,6 +418,9 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignedVehicleId")
+                        .HasDatabaseName("IX_Drivers_AssignedVehicle");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_Drivers_User");
@@ -933,6 +944,11 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ShipFlow.Domain.Fleet.Driver", b =>
                 {
+                    b.HasOne("ShipFlow.Domain.Fleet.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedVehicleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ShipFlow.Domain.Companies.TransportCompany", null)
                         .WithMany()
                         .HasForeignKey("CompanyId")

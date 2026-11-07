@@ -4,6 +4,7 @@ import {
   AssignmentDto,
   AvailabilityQuery,
   DriverDto,
+  MatchingStatusDto,
   ShipmentDetailsDto,
   UnassignShipmentCommand,
   VehicleDto,
@@ -63,5 +64,19 @@ export const dispatchApi = {
   ): Promise<ShipmentDetailsDto> => {
     const res = await apiClient.post<ShipmentDetailsDto>(`/api/shipments/${shipmentId}/unassign`, command, { signal });
     return res.data;
+  },
+
+  getMatchingStatus: async (shipmentId: string, signal?: AbortSignal): Promise<MatchingStatusDto> => {
+    const res = await apiClient.get<MatchingStatusDto>(`/api/shipments/${shipmentId}/matching-status`, { signal });
+    return res.data;
+  },
+
+  dispatchForMatching: async (shipmentId: string, signal?: AbortSignal): Promise<MatchingStatusDto> => {
+    const res = await apiClient.post<MatchingStatusDto>(`/api/shipments/${shipmentId}/dispatch-matching`, {}, { signal });
+    return res.data;
+  },
+
+  cancelDispatchMatching: async (shipmentId: string, signal?: AbortSignal): Promise<void> => {
+    await apiClient.post(`/api/shipments/${shipmentId}/cancel-dispatch-matching`, {}, { signal });
   },
 };

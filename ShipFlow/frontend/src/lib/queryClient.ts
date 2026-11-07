@@ -50,6 +50,7 @@ export const queryKeys = {
     availableVehicles: (shipmentId: string, window: any) => ['dispatch', 'vehicles', shipmentId, window] as const,
     availableDrivers: (shipmentId: string, window: any) => ['dispatch', 'drivers', shipmentId, window] as const,
     assignment: (shipmentId: string) => ['dispatch', 'assignment', shipmentId] as const,
+    matchingStatus: (shipmentId: string) => ['dispatch', 'matching', shipmentId] as const,
   },
   tracking: {
     latest: (shipmentId: string) => ['tracking', 'latest', shipmentId] as const,
@@ -59,6 +60,8 @@ export const queryKeys = {
   driver: {
     currentAssignment: ['driver', 'assignments', 'current'] as const,
     history: (page?: number, pageSize?: number) => ['driver', 'assignments', 'history', page, pageSize] as const,
+    profile: ['driver', 'profile'] as const,
+    availableShipments: ['driver', 'availableShipments'] as const,
   },
   cargo: {
     analysis: (id: string) => ['cargo', 'analysis', id] as const,
