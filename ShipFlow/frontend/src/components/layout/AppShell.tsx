@@ -3,9 +3,12 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { MobileNav } from './MobileNav';
+import { MobileBottomNav } from './MobileBottomNav';
+import { MobileProfileSheet } from './MobileProfileSheet';
 
 export const AppShell: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex bg-neutral-appBg">
@@ -20,16 +23,34 @@ export const AppShell: React.FC = () => {
       {/* Desktop Sidebar */}
       <Sidebar />
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile Navigation Drawer (fallback / drawer if triggered) */}
       <MobileNav isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar onToggleMobile={() => setMobileOpen(true)} />
-        <main id="main-content" className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
+        <TopBar
+          onToggleMobile={() => setMobileOpen(true)}
+          onOpenProfile={() => setProfileSheetOpen(true)}
+        />
+        <main
+          id="main-content"
+          className="flex-1 p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto"
+        >
           <Outlet />
         </main>
       </div>
+
+      {/* Native Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        onOpenProfile={() => setProfileSheetOpen(true)}
+        isProfileOpen={profileSheetOpen}
+      />
+
+      {/* Mobile Profile & Actions Sheet */}
+      <MobileProfileSheet
+        isOpen={profileSheetOpen}
+        onClose={() => setProfileSheetOpen(false)}
+      />
     </div>
   );
 };

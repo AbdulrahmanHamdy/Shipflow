@@ -1,28 +1,43 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
-import { Menu, LogOut, ShieldCheck } from 'lucide-react';
+import { ShipFlowSymbol } from '@/components/brand';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface TopBarProps {
-  onToggleMobile: () => void;
+  onToggleMobile?: () => void;
+  onOpenProfile?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ onToggleMobile }) => {
+export const TopBar: React.FC<TopBarProps> = ({ onOpenProfile }) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, hasRole, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const isPlatformAdmin = hasRole('PlatformAdmin');
+  const isCustomer = hasRole('Customer') || isPlatformAdmin;
+  const isCarrierStaff = hasRole('CompanyAdmin') || hasRole('Dispatcher') || isPlatformAdmin;
+  const isDriver = hasRole('Driver') || isPlatformAdmin;
+
+  const homeRoute = isDriver && !isCustomer
+    ? '/driver'
+    : (isCarrierStaff && !isCustomer) || isPlatformAdmin
+    ? '/carrier'
+    : '/app';
 
   return (
     <header className="h-16 bg-white border-b border-neutral-border flex items-center justify-between px-4 sm:px-6 z-20">
       <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleMobile}
-          className="md:hidden p-2 rounded-lg text-neutral-secondary hover:text-neutral-primary hover:bg-neutral-hover transition-colors"
-          aria-label="Toggle navigation drawer"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        {/* Mobile Brand Logo */}
+        <div className="md:hidden flex items-center">
+          <NavLink to={homeRoute} className="flex items-center gap-2 select-none">
+            <ShipFlowSymbol size={28} variant="dark" />
+            <span className="font-extrabold text-base tracking-tight text-forest-night">
+              Ship<span className="text-brand">Flow</span>
+            </span>
+          </NavLink>
+        </div>
 
         <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-secondary font-medium">
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
@@ -34,7 +49,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobile }) => {
         {/* User Profile dropdown */}
         <div className="relative">
           <button
-            onClick={() => setProfileOpen(!profileOpen)}
+            onClick={() => {
+              // On mobile, trigger the full-height mobile profile sheet for native feel
+              if (window.innerWidth < 768 && onOpenProfile) {
+                onOpenProfile();
+              } else {
+                setProfileOpen(!profileOpen);
+              }
+            }}
             className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-neutral-hover transition-colors focus:outline-none"
             aria-expanded={profileOpen}
             aria-label="User account menu"
