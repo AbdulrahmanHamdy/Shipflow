@@ -12,7 +12,8 @@ public sealed record EligibleDriverDto(
     decimal? VehicleMaxWeightKg,
     decimal? VehicleMaxVolumeM3,
     bool CanCarryDimensions,
-    string EligibilityStatus);
+    string EligibilityStatus,
+    string? VehicleModel = null);
 
 public sealed record MatchingStatusDto(
     Guid ShipmentId,
@@ -65,7 +66,8 @@ public sealed record DriverProfileDto(
     string? AssignedVehiclePlate,
     string? AssignedVehicleType,
     bool IsAvailable,
-    bool HasActiveAssignment);
+    bool HasActiveAssignment,
+    string? AssignedVehicleModel = null);
 
 public sealed record UpdateDriverAvailabilityCommand(bool IsAvailable);
 

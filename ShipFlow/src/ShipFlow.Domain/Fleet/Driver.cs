@@ -44,6 +44,9 @@ public sealed class Driver : Entity
     /// <summary>Currently assigned vehicle for automated dispatch and matching.</summary>
     public Guid? AssignedVehicleId { get; private set; }
 
+    /// <summary>Navigation property to the assigned vehicle.</summary>
+    public Vehicle? AssignedVehicle { get; private set; }
+
     /// <summary>Whether the driver is online and ready to accept open dispatched shipments.</summary>
     public bool IsAvailable { get; private set; }
 

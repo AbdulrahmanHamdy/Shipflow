@@ -41,11 +41,7 @@ public sealed class DemoDataSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
-        if (await _db.Shipments.AnyAsync(s => s.Reference != null && s.Reference.StartsWith("SF-2026-"), cancellationToken))
-        {
-            _logger.LogInformation("Demo shipments already exist; skipping demo dataset generation.");
-            return;
-        }
+        var legacyShipmentsExist = await _db.Shipments.AnyAsync(s => s.Reference != null && s.Reference.StartsWith("SF-2026-"), cancellationToken);
 
         var now = _time.GetUtcNow().UtcDateTime;
 
@@ -97,11 +93,16 @@ public sealed class DemoDataSeeder
         var drv4 = await EnsureDriverProfileAsync(demoCompany, driver4.Id, "Hassan Nour", "EGY-DRV-9155", cancellationToken);
 
         // Register vehicles for Demo Logistics
-        var veh1 = await EnsureVehicleAsync(demoCompany, "DEMO001", VehicleType.Truck, Capacity.Of(10_000m, 60m), cancellationToken);
-        var vehVan = await EnsureVehicleAsync(demoCompany, "DEMO-VAN-01", VehicleType.Van, Capacity.Of(1_800m, 14m), cancellationToken);
-        var vehPickup = await EnsureVehicleAsync(demoCompany, "DEMO-PICKUP-02", VehicleType.Pickup, Capacity.Of(2_500m, 18m), cancellationToken);
-        var vehTruck = await EnsureVehicleAsync(demoCompany, "DEMO-TRUCK-03", VehicleType.Truck, Capacity.Of(12_000m, 75m), cancellationToken);
-        var vehTrailer = await EnsureVehicleAsync(demoCompany, "DEMO-TRAILER-04", VehicleType.Trailer, Capacity.Of(24_000m, 110m), cancellationToken);
+        var veh1 = await EnsureVehicleAsync(demoCompany, "DEMO001", VehicleType.Truck, Capacity.Of(10_000m, 60m),
+            "Heavy Freight Truck", 6.50m, 2.40m, 2.40m, 2.30m, 2.30m, cancellationToken);
+        var vehVan = await EnsureVehicleAsync(demoCompany, "DEMO-VAN-01", VehicleType.Van, Capacity.Of(1_800m, 14m),
+            "Commercial Cargo Van", 3.40m, 1.80m, 1.90m, 1.60m, 1.80m, cancellationToken);
+        var vehPickup = await EnsureVehicleAsync(demoCompany, "DEMO-PICKUP-02", VehicleType.Pickup, Capacity.Of(2_500m, 18m),
+            "Heavy Utility Pickup", 2.20m, 1.60m, 0.90m, 1.50m, 0.90m, cancellationToken);
+        var vehTruck = await EnsureVehicleAsync(demoCompany, "DEMO-TRUCK-03", VehicleType.Truck, Capacity.Of(12_000m, 75m),
+            "Heavy Box Truck", 7.20m, 2.45m, 2.50m, 2.35m, 2.40m, cancellationToken);
+        var vehTrailer = await EnsureVehicleAsync(demoCompany, "DEMO-TRAILER-04", VehicleType.Trailer, Capacity.Of(24_000m, 110m),
+            "Articulated Freight Trailer", 13.60m, 2.45m, 2.65m, 2.40m, 2.55m, cancellationToken);
 
         // Assign default fleet vehicles and ensure drivers are available for dispatch
         drv1.AssignVehicle(veh1.Id); drv1.SetAvailable(true);
@@ -124,14 +125,25 @@ public sealed class DemoDataSeeder
         }
 
         var apexDrvProfile = await EnsureDriverProfileAsync(apexCompany, apexDriver.Id, "Omar Zaid", "APEX-DRV-2001", cancellationToken);
-        var apexVehTruck = await EnsureVehicleAsync(apexCompany, "APEX-TRK-101", VehicleType.Truck, Capacity.Of(15_000m, 80m), cancellationToken);
-        var apexVehVan = await EnsureVehicleAsync(apexCompany, "APEX-VAN-102", VehicleType.Van, Capacity.Of(2_000m, 15m), cancellationToken);
+        var apexVehTruck = await EnsureVehicleAsync(apexCompany, "APEX-TRK-101", VehicleType.Truck, Capacity.Of(15_000m, 80m),
+            "Apex Freightliner Truck", 8.00m, 2.45m, 2.60m, 2.40m, 2.50m, cancellationToken);
+        var apexVehVan = await EnsureVehicleAsync(apexCompany, "APEX-VAN-102", VehicleType.Van, Capacity.Of(2_000m, 15m),
+            "Apex Express Van", 3.50m, 1.85m, 1.95m, 1.65m, 1.85m, cancellationToken);
 
         apexDrvProfile.AssignVehicle(apexVehTruck.Id);
         apexDrvProfile.SetAvailable(true);
         await _db.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Creating realistic shipments and tracking lifecycles...");
+        // 4. Dedicated Driver Matching Fleet & Test Scenarios
+        await SeedDriverMatchingTestDataAsync(demoCompany, apexCompany, customer, dispatcher, cancellationToken);
+
+        if (legacyShipmentsExist)
+        {
+            _logger.LogInformation("Legacy demo shipments already exist; skipping legacy 28 shipment generation.");
+            return;
+        }
+
+        _logger.LogInformation("Creating realistic legacy demo shipments and tracking lifecycles...");
 
         var noConflicts = Array.Empty<Assignment>();
 
@@ -905,11 +917,18 @@ public sealed class DemoDataSeeder
         _logger.LogInformation("Successfully generated 28 demo shipments with rich interconnected lifecycles, quotes, assignments, tracking trails, and delivery proofs!");
     }
 
-    private async Task<ApplicationUser> EnsureUserAsync(string email, string fullName, string role, DateTime now)
+    public const string DriverTestPassword = "DriverTest123!";
+
+    private async Task<ApplicationUser> EnsureUserAsync(string email, string fullName, string role, DateTime now, string? password = null)
     {
+        var pass = password ?? DefaultDemoPassword;
         var existing = await _users.FindByEmailAsync(email);
         if (existing is not null)
         {
+            if (!await _users.IsInRoleAsync(existing, role))
+            {
+                await _users.AddToRoleAsync(existing, role);
+            }
             return existing;
         }
 
@@ -924,7 +943,7 @@ public sealed class DemoDataSeeder
             CreatedAtUtc = now
         };
 
-        var res = await _users.CreateAsync(user, DefaultDemoPassword);
+        var res = await _users.CreateAsync(user, pass);
         if (!res.Succeeded)
         {
             throw new InvalidOperationException($"Failed to create user {email}: " + string.Join("; ", res.Errors.Select(e => e.Code)));
@@ -948,18 +967,303 @@ public sealed class DemoDataSeeder
         return driver;
     }
 
-    private async Task<Vehicle> EnsureVehicleAsync(TransportCompany company, string plateNumber, VehicleType type, Capacity capacity, CancellationToken ct)
+    private async Task<Vehicle> EnsureVehicleAsync(
+        TransportCompany company,
+        string plateNumber,
+        VehicleType type,
+        Capacity capacity,
+        string? modelName = null,
+        decimal? cargoLengthM = null,
+        decimal? cargoWidthM = null,
+        decimal? cargoHeightM = null,
+        decimal? doorWidthM = null,
+        decimal? doorHeightM = null,
+        CancellationToken ct = default)
     {
         var normalized = string.Concat(plateNumber.Trim().Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant();
         var existing = await _db.Vehicles.FirstOrDefaultAsync(v => v.CompanyId == company.Id && v.PlateNumber == normalized, ct);
         if (existing is not null)
         {
+            if (modelName != null && existing.ModelName == null)
+            {
+                existing.SetSpecifications(modelName, cargoLengthM, cargoWidthM, cargoHeightM, doorWidthM, doorHeightM);
+                await _db.SaveChangesAsync(ct);
+            }
             return existing;
         }
 
         var vehicle = company.RegisterVehicle(plateNumber, type, capacity);
+        if (modelName != null)
+        {
+            vehicle.SetSpecifications(modelName, cargoLengthM, cargoWidthM, cargoHeightM, doorWidthM, doorHeightM);
+        }
         _db.Vehicles.Add(vehicle);
         await _db.SaveChangesAsync(ct);
         return vehicle;
+    }
+
+    private async Task SeedDriverMatchingTestDataAsync(
+        TransportCompany demoCompany,
+        TransportCompany apexCompany,
+        ApplicationUser customer,
+        ApplicationUser dispatcher,
+        CancellationToken ct)
+    {
+        var now = _time.GetUtcNow().UtcDateTime;
+
+        _logger.LogInformation("Seeding realistic driver matching fleet, accounts, and scenarios...");
+
+        // -----------------------------------------------------------------------------------------------------------------
+        // 1. REALISTIC FLEET VEHICLES WITH COHERENT SPECIFICATIONS
+        // -----------------------------------------------------------------------------------------------------------------
+        // Vehicle 1: Hyundai H-1 (Van, Payload: 1,000 kg, Vol: 6.0 m³, 2.37m x 1.62m x 1.35m, Door: 1.25m x 1.20m)
+        var vehH1 = await EnsureVehicleAsync(demoCompany, "EGY-VAN-H1", VehicleType.Van, Capacity.Of(1_000m, 6.0m),
+            "Hyundai H-1", 2.37m, 1.62m, 1.35m, 1.25m, 1.20m, ct);
+
+        // Vehicle 2: Toyota HiAce (Van, Payload: 1,200 kg, Vol: 8.5 m³, 2.93m x 1.54m x 1.33m, Door: 1.35m x 1.25m)
+        var vehHiAce = await EnsureVehicleAsync(demoCompany, "EGY-VAN-HIA", VehicleType.Van, Capacity.Of(1_200m, 8.5m),
+            "Toyota HiAce", 2.93m, 1.54m, 1.33m, 1.35m, 1.25m, ct);
+
+        // Vehicle 3: Mercedes-Benz Sprinter (Large Van, Payload: 1,500 kg, Vol: 12.0 m³, 3.35m x 1.78m x 1.94m, Door: 1.56m x 1.84m)
+        var vehSprinter = await EnsureVehicleAsync(demoCompany, "EGY-VAN-SPR", VehicleType.Van, Capacity.Of(1_500m, 12.0m),
+            "Mercedes-Benz Sprinter", 3.35m, 1.78m, 1.94m, 1.56m, 1.84m, ct);
+
+        // Vehicle 4: Mitsubishi Canter (Light Truck, Payload: 3,000 kg, Vol: 16.0 m³, 4.30m x 1.95m x 1.90m, Door: 1.85m x 1.80m)
+        var vehCanter = await EnsureVehicleAsync(demoCompany, "EGY-TRK-CAN", VehicleType.Truck, Capacity.Of(3_000m, 16.0m),
+            "Mitsubishi Canter", 4.30m, 1.95m, 1.90m, 1.85m, 1.80m, ct);
+
+        // Vehicle 5: Isuzu NPR (Medium Truck, Payload: 4,000 kg, Vol: 24.0 m³, 5.20m x 2.15m x 2.15m, Door: 2.05m x 2.05m)
+        var vehNpr = await EnsureVehicleAsync(demoCompany, "EGY-TRK-NPR", VehicleType.Truck, Capacity.Of(4_000m, 24.0m),
+            "Isuzu NPR", 5.20m, 2.15m, 2.15m, 2.05m, 2.05m, ct);
+
+        // Vehicle 6: Toyota Hilux (Pickup, Payload: 1,000 kg, Vol: 2.8 m³, 1.55m x 1.52m x 0.85m, Door: 1.40m x 0.85m)
+        var vehHilux = await EnsureVehicleAsync(demoCompany, "EGY-PKP-HLX", VehicleType.Pickup, Capacity.Of(1_000m, 2.8m),
+            "Toyota Hilux", 1.55m, 1.52m, 0.85m, 1.40m, 0.85m, ct);
+
+        // Vehicle 7: Chevrolet N300 (Mini Van, Payload: 700 kg, Vol: 3.5 m³, 1.80m x 1.25m x 1.15m, Door: 1.05m x 1.00m)
+        var vehN300 = await EnsureVehicleAsync(demoCompany, "EGY-MVAN-N3", VehicleType.Van, Capacity.Of(700m, 3.5m),
+            "Chevrolet N300", 1.80m, 1.25m, 1.15m, 1.05m, 1.00m, ct);
+
+        // Vehicle 8: Hyundai H-1 #2 (Van, Payload: 1,000 kg, Vol: 6.0 m³, 2.37m x 1.62m x 1.35m, Door: 1.25m x 1.20m)
+        var vehH2 = await EnsureVehicleAsync(demoCompany, "EGY-VAN-H2", VehicleType.Van, Capacity.Of(1_000m, 6.0m),
+            "Hyundai H-1", 2.37m, 1.62m, 1.35m, 1.25m, 1.20m, ct);
+
+        // -----------------------------------------------------------------------------------------------------------------
+        // 2. REALISTIC TEST DRIVERS LINKED TO IDENTITY, COMPANY, AND VEHICLES
+        // -----------------------------------------------------------------------------------------------------------------
+        // Driver 1: Ahmed Hassan -> Hyundai H-1 (Available)
+        var uAhmed = await EnsureUserAsync("ahmed.driver@shipflow.test", "Ahmed Hassan", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uAhmed.Id)) demoCompany.AddMember(uAhmed.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvAhmed = await EnsureDriverProfileAsync(demoCompany, uAhmed.Id, "Ahmed Hassan", "EGY-LIC-1001", ct);
+        drvAhmed.AssignVehicle(vehH1.Id);
+        drvAhmed.SetAvailable(true);
+
+        // Driver 2: Mohamed Ali -> Toyota HiAce (Available)
+        var uMohamed = await EnsureUserAsync("mohamed.driver@shipflow.test", "Mohamed Ali", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uMohamed.Id)) demoCompany.AddMember(uMohamed.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvMohamed = await EnsureDriverProfileAsync(demoCompany, uMohamed.Id, "Mohamed Ali", "EGY-LIC-1002", ct);
+        drvMohamed.AssignVehicle(vehHiAce.Id);
+        drvMohamed.SetAvailable(true);
+
+        // Driver 3: Youssef Adel -> Mercedes-Benz Sprinter (Available)
+        var uYoussef = await EnsureUserAsync("youssef.driver@shipflow.test", "Youssef Adel", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uYoussef.Id)) demoCompany.AddMember(uYoussef.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvYoussef = await EnsureDriverProfileAsync(demoCompany, uYoussef.Id, "Youssef Adel", "EGY-LIC-1003", ct);
+        drvYoussef.AssignVehicle(vehSprinter.Id);
+        drvYoussef.SetAvailable(true);
+
+        // Driver 4: Omar Khaled -> Mitsubishi Canter (Available)
+        var uOmar = await EnsureUserAsync("omar.driver@shipflow.test", "Omar Khaled", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uOmar.Id)) demoCompany.AddMember(uOmar.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvOmar = await EnsureDriverProfileAsync(demoCompany, uOmar.Id, "Omar Khaled", "EGY-LIC-1004", ct);
+        drvOmar.AssignVehicle(vehCanter.Id);
+        drvOmar.SetAvailable(true);
+
+        // Driver 5: Mahmoud Samir -> Isuzu NPR (Available)
+        var uMahmoud = await EnsureUserAsync("mahmoud.driver@shipflow.test", "Mahmoud Samir", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uMahmoud.Id)) demoCompany.AddMember(uMahmoud.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvMahmoud = await EnsureDriverProfileAsync(demoCompany, uMahmoud.Id, "Mahmoud Samir", "EGY-LIC-1005", ct);
+        drvMahmoud.AssignVehicle(vehNpr.Id);
+        drvMahmoud.SetAvailable(true);
+
+        // Driver 6: Karim Mostafa -> Toyota Hilux (Available - Small / open bed)
+        var uKarim = await EnsureUserAsync("karim.driver@shipflow.test", "Karim Mostafa", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uKarim.Id)) demoCompany.AddMember(uKarim.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvKarim = await EnsureDriverProfileAsync(demoCompany, uKarim.Id, "Karim Mostafa", "EGY-LIC-1006", ct);
+        drvKarim.AssignVehicle(vehHilux.Id);
+        drvKarim.SetAvailable(true);
+
+        // Driver 7: Amr Fathy -> Chevrolet N300 (Available - Mini van, payload 700 kg)
+        var uAmr = await EnsureUserAsync("amr.driver@shipflow.test", "Amr Fathy", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uAmr.Id)) demoCompany.AddMember(uAmr.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvAmr = await EnsureDriverProfileAsync(demoCompany, uAmr.Id, "Amr Fathy", "EGY-LIC-1007", ct);
+        drvAmr.AssignVehicle(vehN300.Id);
+        drvAmr.SetAvailable(true);
+
+        // Driver 8: Hassan Ibrahim -> Hyundai H-1 #2 (Offline - ready to toggle Online)
+        var uHassan = await EnsureUserAsync("hassan.driver@shipflow.test", "Hassan Ibrahim", Roles.Driver, now, DriverTestPassword);
+        if (!demoCompany.HasActiveMember(uHassan.Id)) demoCompany.AddMember(uHassan.Id, CompanyRole.Driver, now.AddDays(-10));
+        var drvHassan = await EnsureDriverProfileAsync(demoCompany, uHassan.Id, "Hassan Ibrahim", "EGY-LIC-1008", ct);
+        drvHassan.AssignVehicle(vehH2.Id);
+        drvHassan.SetAvailable(false); // Offline scenario!
+
+        await _db.SaveChangesAsync(ct);
+
+        // -----------------------------------------------------------------------------------------------------------------
+        // 3. SCENARIO TEST SHIPMENTS (IDEMPOTENT CHECK ON REFERENCE)
+        // -----------------------------------------------------------------------------------------------------------------
+        var noConflicts = Array.Empty<Assignment>();
+
+        // SCENARIO 1: Small Shipment (Mini Van Suitable) -> Status: Accepted (Ready for Dispatch)
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-SMALL-01", ct))
+        {
+            var created = now.AddHours(-3);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Nasr City Commercial Tech Center, Block 7, Cairo", GeoPoint.Of(30.0560, 31.3420), TimeWindow.Of(now.AddHours(1), now.AddHours(24))),
+                new StopInfo("5th Settlement Business Park, Building 14B, New Cairo", GeoPoint.Of(30.0120, 31.4390), TimeWindow.Of(now.AddHours(2), now.AddHours(36)))
+            };
+
+            var sSmall = Shipment.Create(customer.Id, Cargo.Of("Small Electronics & Office Documents", 220m, 1.5m), stops, created, "SF-TEST-SMALL-01");
+            sSmall.OpenForQuoting(customer.Id, created.AddMinutes(15));
+            var q = sSmall.SubmitQuote(demoCompany.Id, Money.Of(250m, "USD"), now.AddDays(3), "Standard same-day courier dispatch", created.AddMinutes(30));
+            sSmall.AcceptQuote(customer.Id, q.Id, created.AddMinutes(45));
+            _db.Shipments.Add(sSmall);
+        }
+
+        // SCENARIO 2: Medium Shipment (Normal Van Suitable; Excludes Mini Van & Pickup) -> Status: Accepted
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-MEDIUM-02", ct))
+        {
+            var created = now.AddHours(-4);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("10th of Ramadan City Industrial Zone B3, KM 45", GeoPoint.Of(30.3010, 31.7450), TimeWindow.Of(now.AddHours(1), now.AddHours(24))),
+                new StopInfo("Heliopolis Cargo Distribution Center, El-Mirghani, Cairo", GeoPoint.Of(30.0900, 31.3300), TimeWindow.Of(now.AddHours(3), now.AddHours(36)))
+            };
+
+            var sMed = Shipment.Create(customer.Id, Cargo.Of("Retail Apparel & Commercial Textiles", 850m, 5.2m), stops, created, "SF-TEST-MEDIUM-02");
+            sMed.OpenForQuoting(customer.Id, created.AddMinutes(15));
+            var q = sMed.SubmitQuote(demoCompany.Id, Money.Of(680m, "USD"), now.AddDays(3), "Enclosed dry van cargo transport", created.AddMinutes(30));
+            sMed.AcceptQuote(customer.Id, q.Id, created.AddMinutes(45));
+            _db.Shipments.Add(sMed);
+        }
+
+        // SCENARIO 3: Large Furniture Shipment (Requires Large Van or Truck) -> Status: Accepted
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-LARGE-03", ct))
+        {
+            var created = now.AddHours(-5);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Damietta Furniture Exhibition Complex, Port Said Road", GeoPoint.Of(31.4170, 31.8140), TimeWindow.Of(now.AddHours(2), now.AddHours(48))),
+                new StopInfo("Sheikh Zayed Residential Compound Villa 42, Giza", GeoPoint.Of(30.0380, 30.9820), TimeWindow.Of(now.AddHours(6), now.AddHours(72)))
+            };
+
+            var sLarge = Shipment.Create(customer.Id, Cargo.Of("Handcrafted Solid Wood Living Room & 3-Door Wardrobe Suite (Max Length 3.1m)", 1350m, 10.5m), stops, created, "SF-TEST-LARGE-03");
+            sLarge.OpenForQuoting(customer.Id, created.AddMinutes(20));
+            var q = sLarge.SubmitQuote(demoCompany.Id, Money.Of(1450m, "USD"), now.AddDays(5), "White-glove blanket wrap and tail-lift loading", created.AddMinutes(40));
+            sLarge.AcceptQuote(customer.Id, q.Id, created.AddMinutes(60));
+            _db.Shipments.Add(sLarge);
+        }
+
+        // SCENARIO 4: Heavy Shipment (Requires Medium Truck) -> Status: Accepted
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-HEAVY-04", ct))
+        {
+            var created = now.AddHours(-6);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Helwan Heavy Metal Foundry & Pipe Works, South Cairo", GeoPoint.Of(29.8450, 31.3000), TimeWindow.Of(now.AddHours(2), now.AddHours(48))),
+                new StopInfo("6th of October Heavy Machinery Zone, Industrial Area 3", GeoPoint.Of(29.9320, 30.9150), TimeWindow.Of(now.AddHours(5), now.AddHours(72)))
+            };
+
+            var sHeavy = Shipment.Create(customer.Id, Cargo.Of("Industrial Electric Motors, Steel Pumps & Gearboxes", 2800m, 14.0m), stops, created, "SF-TEST-HEAVY-04");
+            sHeavy.OpenForQuoting(customer.Id, created.AddMinutes(20));
+            var q = sHeavy.SubmitQuote(demoCompany.Id, Money.Of(1850m, "USD"), now.AddDays(4), "Heavy freight payload transport on rigid truck", created.AddMinutes(35));
+            sHeavy.AcceptQuote(customer.Id, q.Id, created.AddMinutes(50));
+            _db.Shipments.Add(sHeavy);
+        }
+
+        // SCENARIO 5: Oversized Freight (No Current Available Vehicle) -> Status: Accepted (for Scenario F testing)
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-OVERSIZE-05", ct))
+        {
+            var created = now.AddHours(-7);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Ain Sokhna Heavy Quarry Terminal, Red Sea Coast", GeoPoint.Of(29.6000, 32.3200), TimeWindow.Of(now.AddHours(3), now.AddHours(72))),
+                new StopInfo("New Administrative Capital Ministries Complex, Cairo", GeoPoint.Of(30.0160, 31.7500), TimeWindow.Of(now.AddHours(8), now.AddHours(96)))
+            };
+
+            var sOver = Shipment.Create(customer.Id, Cargo.Of("Heavy Pre-cast Concrete Beams & Steel Reinforcements", 16500m, 45.0m), stops, created, "SF-TEST-OVERSIZE-05");
+            sOver.OpenForQuoting(customer.Id, created.AddMinutes(15));
+            var q = sOver.SubmitQuote(demoCompany.Id, Money.Of(3200m, "USD"), now.AddDays(5), "Heavy haulage transport", created.AddMinutes(30));
+            sOver.AcceptQuote(customer.Id, q.Id, created.AddMinutes(45));
+            _db.Shipments.Add(sOver);
+        }
+
+        // SCENARIO 6: Active Dispatched Shipment (Currently in SearchingForDriver status) -> Immediately open for drivers!
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-MATCHING-06", ct))
+        {
+            var created = now.AddHours(-2);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Obour Central Agricultural Wholesale Market, Gate 4", GeoPoint.Of(30.2200, 31.4700), TimeWindow.Of(now.AddHours(1), now.AddHours(12))),
+                new StopInfo("Maadi Grand Fresh Market, Road 9, Cairo", GeoPoint.Of(29.9600, 31.2600), TimeWindow.Of(now.AddHours(3), now.AddHours(24)))
+            };
+
+            var sMatch = Shipment.Create(customer.Id, Cargo.Of("Packaged Organic Food Crates & Dry Groceries", 600m, 4.0m), stops, created, "SF-TEST-MATCHING-06");
+            sMatch.OpenForQuoting(customer.Id, created.AddMinutes(10));
+            var q = sMatch.SubmitQuote(demoCompany.Id, Money.Of(480m, "USD"), now.AddDays(2), "Expedited perishables carrier delivery", created.AddMinutes(20));
+            sMatch.AcceptQuote(customer.Id, q.Id, created.AddMinutes(30));
+            sMatch.MarkSearchingForDriver(dispatcher.Id, now.AddHours(-1)); // Open for matching right now!
+            _db.Shipments.Add(sMatch);
+        }
+
+        // SCENARIO 7: Already Assigned Shipment (Active Assignment)
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-ASSIGNED-07", ct))
+        {
+            var created = now.AddHours(-8);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Borg El-Arab Pharma Park, Zone 2, Alexandria", GeoPoint.Of(30.9100, 29.6700), TimeWindow.Of(now.AddHours(-4), now.AddHours(20))),
+                new StopInfo("Tanta University Specialized Hospital, Central Gharbia", GeoPoint.Of(30.7900, 31.0000), TimeWindow.Of(now.AddHours(2), now.AddHours(36)))
+            };
+
+            var sAssigned = Shipment.Create(customer.Id, Cargo.Of("Pharmaceutical Vaccines & Temperature Sensitive Coolers", 450m, 3.0m), stops, created, "SF-TEST-ASSIGNED-07");
+            sAssigned.OpenForQuoting(customer.Id, created.AddMinutes(20));
+            var q = sAssigned.SubmitQuote(demoCompany.Id, Money.Of(820m, "USD"), now.AddDays(3), "Dedicated refrigerated carrier transport", created.AddMinutes(40));
+            sAssigned.AcceptQuote(customer.Id, q.Id, created.AddMinutes(60));
+
+            // Assign to driver2 (Tarek Mansour) who is one of our busy drivers!
+            var drvTarek = await _db.Drivers.FirstOrDefaultAsync(d => d.CompanyId == demoCompany.Id && d.LicenseNumber == "EGY-DRV-7892", ct);
+            var vehDemoTruck = await _db.Vehicles.FirstOrDefaultAsync(v => v.CompanyId == demoCompany.Id && v.PlateNumber == "DEMO-TRUCK-03", ct);
+
+            if (drvTarek != null && vehDemoTruck != null)
+            {
+                var assignWindow = TimeWindow.Of(now.AddHours(-2), now.AddHours(10));
+                var a7 = Assignment.Create(sAssigned, drvTarek, vehDemoTruck, assignWindow, dispatcher.Id, noConflicts, now.AddHours(-2));
+                _db.Assignments.Add(a7);
+            }
+            _db.Shipments.Add(sAssigned);
+        }
+
+        // SCENARIO 8: Cancelled Shipment
+        if (!await _db.Shipments.AnyAsync(s => s.Reference == "SF-TEST-CANCELLED-08", ct))
+        {
+            var created = now.AddHours(-10);
+            var stops = new List<StopInfo>
+            {
+                new StopInfo("Ain Shams Commercial Staging Terminal, Cairo", GeoPoint.Of(30.1300, 31.3200), TimeWindow.Of(now.AddHours(2), now.AddHours(24))),
+                new StopInfo("Qalyub Industrial Warehouses, Qalyubia", GeoPoint.Of(30.1800, 31.2100), TimeWindow.Of(now.AddHours(4), now.AddHours(36)))
+            };
+
+            var sCancelled = Shipment.Create(customer.Id, Cargo.Of("Sample Ceramic Tile Display Racks", 500m, 3.5m), stops, created, "SF-TEST-CANCELLED-08");
+            sCancelled.OpenForQuoting(customer.Id, created.AddMinutes(15));
+            var q = sCancelled.SubmitQuote(demoCompany.Id, Money.Of(420m, "USD"), now.AddDays(2), "Standard palletized freight delivery", created.AddMinutes(30));
+            sCancelled.AcceptQuote(customer.Id, q.Id, created.AddMinutes(45));
+            sCancelled.Cancel(CancellationInitiator.Customer, customer.Id, "Customer rescheduled shipping date due to site renovations.", now.AddHours(-1));
+            _db.Shipments.Add(sCancelled);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Successfully completed idempotent seeding of driver matching test vehicles, drivers, and scenario consignments!");
     }
 }

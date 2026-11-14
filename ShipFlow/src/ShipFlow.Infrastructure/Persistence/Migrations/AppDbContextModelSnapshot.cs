@@ -441,11 +441,35 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("CargoHeightM")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<decimal?>("CargoLengthM")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<decimal?>("CargoWidthM")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("DoorHeightM")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<decimal?>("DoorWidthM")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("ModelName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PlateNumber")
                         .IsRequired()
@@ -944,7 +968,7 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ShipFlow.Domain.Fleet.Driver", b =>
                 {
-                    b.HasOne("ShipFlow.Domain.Fleet.Vehicle", null)
+                    b.HasOne("ShipFlow.Domain.Fleet.Vehicle", "AssignedVehicle")
                         .WithMany()
                         .HasForeignKey("AssignedVehicleId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -960,6 +984,8 @@ namespace ShipFlow.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("AssignedVehicle");
                 });
 
             modelBuilder.Entity("ShipFlow.Domain.Fleet.Vehicle", b =>

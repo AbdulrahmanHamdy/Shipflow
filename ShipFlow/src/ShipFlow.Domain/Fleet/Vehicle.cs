@@ -49,8 +49,42 @@ public sealed class Vehicle : Entity
 
     public Capacity Capacity { get; private set; }
 
+    /// <summary>Vehicle model / commercial designation (e.g. "Hyundai H-1", "Toyota HiAce").</summary>
+    public string? ModelName { get; private set; }
+
+    /// <summary>Interior cargo bay length in meters.</summary>
+    public decimal? CargoLengthM { get; private set; }
+
+    /// <summary>Interior cargo bay width in meters.</summary>
+    public decimal? CargoWidthM { get; private set; }
+
+    /// <summary>Interior cargo bay height in meters.</summary>
+    public decimal? CargoHeightM { get; private set; }
+
+    /// <summary>Loading door width in meters (0 if open-bed or no rear door).</summary>
+    public decimal? DoorWidthM { get; private set; }
+
+    /// <summary>Loading door height in meters (0 if open-bed or no rear door).</summary>
+    public decimal? DoorHeightM { get; private set; }
+
     /// <summary>Whether the vehicle is in service at all. This is NOT booking availability.</summary>
     public bool IsActive { get; private set; }
+
+    public void SetSpecifications(
+        string? modelName,
+        decimal? cargoLengthM,
+        decimal? cargoWidthM,
+        decimal? cargoHeightM,
+        decimal? doorWidthM,
+        decimal? doorHeightM)
+    {
+        ModelName = Guard.OptionalText(modelName, nameof(modelName), 100);
+        CargoLengthM = cargoLengthM;
+        CargoWidthM = cargoWidthM;
+        CargoHeightM = cargoHeightM;
+        DoorWidthM = doorWidthM;
+        DoorHeightM = doorHeightM;
+    }
 
     public void UpdateCapacity(Capacity capacity) => Capacity = Guard.NotNull(capacity, nameof(capacity)) with { };
 

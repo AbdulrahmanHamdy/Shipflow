@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using System.IO;
+using Microsoft.Extensions.Configuration;
 
 namespace ShipFlow.Infrastructure.Persistence;
 
@@ -14,10 +16,20 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
 
     public AppDbContext CreateDbContext(string[] args)
     {
+        // Prefer the explicit design‑time env var if the developer set one.
         var connection = Environment.GetEnvironmentVariable(ConnectionVariable);
         if (string.IsNullOrWhiteSpace(connection))
         {
-            connection = "Server=localhost,1433;Database=ShipFlow_DesignTime;Trusted_Connection=False;TrustServerCertificate=True";
+            // Fallback to the same development connection string used at runtime.
+            // This keeps design‑time operations (e.g., dotnet ef database update) against the real
+            // development database instead of a placeholder "ShipFlow_DesignTime" database.
+            var basePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", ".."));
+            var config = new ConfigurationBuilder()
+                .AddJsonFile(Path.Combine(basePath, "appsettings.json"), optional: true)
+                .AddJsonFile(Path.Combine(basePath, "appsettings.Development.json"), optional: true)
+                .Build();
+            connection = config.GetConnectionString("DefaultConnection") ??
+                "Server=localhost;Database=ShipFlow_Dev;Trusted_Connection=True;TrustServerCertificate=True";
         }
 
         var options = new DbContextOptionsBuilder<AppDbContext>()

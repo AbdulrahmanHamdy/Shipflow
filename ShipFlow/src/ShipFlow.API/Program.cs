@@ -93,7 +93,8 @@ app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.Health
     ResponseWriter = HealthResponseWriter.WriteAsync
 }).AllowAnonymous();
 
-// Optional startup work (migrate in Development, seed roles, seed demo users in Development). See DatabaseOptions.
+builder.Services.AddScoped<IVehicleSearchService, VehicleSearchService>();
+
 var databaseOptions = app.Configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>() ?? new DatabaseOptions();
 if (databaseOptions.MigrateOnStartup || databaseOptions.SeedReferenceData || databaseOptions.SeedDevelopmentData)
 {

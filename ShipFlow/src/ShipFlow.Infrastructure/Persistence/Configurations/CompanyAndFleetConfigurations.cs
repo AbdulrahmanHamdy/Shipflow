@@ -73,7 +73,7 @@ public sealed class DriverConfiguration : IEntityTypeConfiguration<Driver>
 
         builder.HasOne<TransportCompany>().WithMany().HasForeignKey(d => d.CompanyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Vehicle>().WithMany().HasForeignKey(d => d.AssignedVehicleId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(d => d.AssignedVehicle).WithMany().HasForeignKey(d => d.AssignedVehicleId).OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(d => new { d.CompanyId, d.UserId }).IsUnique().HasDatabaseName("UX_Drivers_Company_User");
         builder.HasIndex(d => new { d.CompanyId, d.LicenseNumber }).IsUnique().HasDatabaseName("UX_Drivers_Company_License");
@@ -93,6 +93,13 @@ public sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
         builder.Property(v => v.PlateNumber).HasMaxLength(Vehicle.MaxPlateLength).IsRequired();
         builder.Property(v => v.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(v => v.IsActive).IsRequired();
+
+        builder.Property(v => v.ModelName).HasMaxLength(100).IsRequired(false);
+        builder.Property(v => v.CargoLengthM).HasPrecision(6, 2).IsRequired(false);
+        builder.Property(v => v.CargoWidthM).HasPrecision(6, 2).IsRequired(false);
+        builder.Property(v => v.CargoHeightM).HasPrecision(6, 2).IsRequired(false);
+        builder.Property(v => v.DoorWidthM).HasPrecision(6, 2).IsRequired(false);
+        builder.Property(v => v.DoorHeightM).HasPrecision(6, 2).IsRequired(false);
 
         builder.OwnsOne(v => v.Capacity, capacity =>
         {

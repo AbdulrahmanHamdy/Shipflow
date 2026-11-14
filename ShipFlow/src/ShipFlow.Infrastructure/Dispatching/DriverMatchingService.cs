@@ -46,6 +46,251 @@ public sealed class DriverMatchingService : IDriverMatchingService
         _logger = logger;
     }
 
+    public async Task<IReadOnlyList<EligibleDriverDto>> GetEligibleDriversAsync(Guid shipmentId, CancellationToken ct)
+    {
+        var shipment = await _shipments.FindAsync(shipmentId, ct)
+            ?? throw new NotFoundException("Shipment not found.");
+
+        var carrierId = shipment.CarrierCompanyId
+            ?? throw new ConflictException("Shipment does not have an assigned carrier company.");
+
+        // Fetch drivers and vehicles similar to GetMatchingStatusAsync
+        var drivers = await _db.Drivers
+            .AsNoTracking()
+            .Where(d => d.CompanyId == carrierId && d.IsActive)
+            .OrderBy(d => d.FullName)
+            .ToListAsync(ct);
+
+        var vehicleIds = drivers.Where(d => d.AssignedVehicleId != null).Select(d => d.AssignedVehicleId!.Value).Distinct().ToList();
+        var vehicles = await _db.Vehicles
+            .AsNoTracking()
+            .Where(v => vehicleIds.Contains(v.Id))
+            .ToDictionaryAsync(v => v.Id, ct);
+
+        var activeAssignments = await _db.Assignments
+            .AsNoTracking()
+            .Where(a => a.CompanyId == carrierId && a.Status == AssignmentStatus.Active)
+            .ToListAsync(ct);
+
+        var busyDrivers = activeAssignments.Select(a => a.DriverId).ToHashSet();
+        var busyVehicles = activeAssignments.Select(a => a.VehicleId).ToHashSet();
+
+        var eligibleList = new List<EligibleDriverDto>();
+        foreach (var driver in drivers)
+        {
+            Vehicle? vehicle = null;
+            if (driver.AssignedVehicleId is { } vId)
+            {
+                vehicles.TryGetValue(vId, out vehicle);
+            }
+
+            var hasVehicle = vehicle != null && vehicle.IsActive;
+            var isDriverBusy = busyDrivers.Contains(driver.Id);
+            var isVehicleBusy = hasVehicle && busyVehicles.Contains(vehicle!.Id);
+
+            var canCarryPayload = hasVehicle && vehicle!.Capacity.MaxWeightKg >= shipment.Cargo.WeightKg && vehicle.Capacity.MaxVolumeM3 >= shipment.Cargo.VolumeM3;
+            var canCarryDimensions = hasVehicle && CheckVehicleFitsDimensions(vehicle!, shipment.Cargo);
+
+            string statusText;
+            if (!hasVehicle)
+                statusText = "No active vehicle assigned";
+            else if (!driver.IsAvailable)
+                statusText = "Driver is offline";
+            else if (isDriverBusy)
+                statusText = "Driver currently on active delivery";
+            else if (isVehicleBusy)
+                statusText = "Assigned vehicle busy on another delivery";
+            else if (!canCarryPayload)
+                statusText = "Vehicle capacity insufficient for cargo";
+            else if (!canCarryDimensions)
+                statusText = "Vehicle dimensions not optimal for cargo size";
+            else
+                statusText = "Eligible & Available";
+
+            eligibleList.Add(new EligibleDriverDto(
+                DriverId: driver.Id,
+                UserId: driver.UserId,
+                FullName: driver.FullName,
+                LicenseNumber: driver.LicenseNumber,
+                IsAvailable: driver.IsAvailable && !isDriverBusy,
+                VehicleId: vehicle?.Id,
+                VehiclePlate: vehicle?.PlateNumber,
+                VehicleType: vehicle?.Type.ToString(),
+                VehicleMaxWeightKg: vehicle?.Capacity.MaxWeightKg,
+                VehicleMaxVolumeM3: vehicle?.Capacity.MaxVolumeM3,
+                CanCarryDimensions: canCarryDimensions,
+                EligibilityStatus: statusText,
+                VehicleModel: vehicle?.ModelName ?? vehicle?.PlateNumber
+            ));
+        }
+
+        // Return only drivers marked as eligible
+        return eligibleList.Where(d => d.EligibilityStatus.StartsWith("Eligible")).ToList();
+    }(Guid shipmentId, Viewer viewer, CancellationToken ct)
+    {
+        var shipment = await _shipments.FindAsync(shipmentId, ct)
+            ?? throw new NotFoundException("Shipment not found.");
+
+        if (!viewer.IsPlatformAdmin && !viewer.IsCarrierOf(shipment))
+        {
+            throw new NotFoundException("Shipment not found.");
+        }
+
+        var carrierId = shipment.CarrierCompanyId
+            ?? throw new ConflictException("Shipment does not have an assigned carrier company.");
+
+        // Fetch drivers and vehicles similar to GetMatchingStatusAsync
+        var drivers = await _db.Drivers
+            .AsNoTracking()
+            .Where(d => d.CompanyId == carrierId && d.IsActive)
+            .OrderBy(d => d.FullName)
+            .ToListAsync(ct);
+
+        var vehicleIds = drivers.Where(d => d.AssignedVehicleId != null).Select(d => d.AssignedVehicleId!.Value).Distinct().ToList();
+        var vehicles = await _db.Vehicles
+            .AsNoTracking()
+            .Where(v => vehicleIds.Contains(v.Id))
+            .ToDictionaryAsync(v => v.Id, ct);
+
+        var activeAssignments = await _db.Assignments
+            .AsNoTracking()
+            .Where(a => a.CompanyId == carrierId && a.Status == AssignmentStatus.Active)
+            .ToListAsync(ct);
+
+        var busyDrivers = activeAssignments.Select(a => a.DriverId).ToHashSet();
+        var busyVehicles = activeAssignments.Select(a => a.VehicleId).ToHashSet();
+
+        var eligibleList = new List<EligibleDriverDto>();
+        foreach (var driver in drivers)
+        {
+            Vehicle? vehicle = null;
+            if (driver.AssignedVehicleId is { } vId)
+            {
+                vehicles.TryGetValue(vId, out vehicle);
+            }
+
+            var hasVehicle = vehicle != null && vehicle.IsActive;
+            var isDriverBusy = busyDrivers.Contains(driver.Id);
+            var isVehicleBusy = hasVehicle && busyVehicles.Contains(vehicle!.Id);
+
+            var canCarryPayload = hasVehicle && vehicle!.Capacity.MaxWeightKg >= shipment.Cargo.WeightKg && vehicle.Capacity.MaxVolumeM3 >= shipment.Cargo.VolumeM3;
+            var canCarryDimensions = hasVehicle && CheckVehicleFitsDimensions(vehicle!, shipment.Cargo);
+
+            string statusText;
+            if (!hasVehicle)
+                statusText = "No active vehicle assigned";
+            else if (!driver.IsAvailable)
+                statusText = "Driver is offline";
+            else if (isDriverBusy)
+                statusText = "Driver currently on active delivery";
+            else if (isVehicleBusy)
+                statusText = "Assigned vehicle busy on another delivery";
+            else if (!canCarryPayload)
+                statusText = "Vehicle capacity insufficient for cargo";
+            else if (!canCarryDimensions)
+                statusText = "Vehicle dimensions not optimal for cargo size";
+            else
+                statusText = "Eligible & Available";
+
+            eligibleList.Add(new EligibleDriverDto(
+                DriverId: driver.Id,
+                UserId: driver.UserId,
+                FullName: driver.FullName,
+                LicenseNumber: driver.LicenseNumber,
+                IsAvailable: driver.IsAvailable && !isDriverBusy,
+                VehicleId: vehicle?.Id,
+                VehiclePlate: vehicle?.PlateNumber,
+                VehicleType: vehicle?.Type.ToString(),
+                VehicleMaxWeightKg: vehicle?.Capacity.MaxWeightKg,
+                VehicleMaxVolumeM3: vehicle?.Capacity.MaxVolumeM3,
+                CanCarryDimensions: canCarryDimensions,
+                EligibilityStatus: statusText,
+                VehicleModel: vehicle?.ModelName ?? vehicle?.PlateNumber
+            ));
+        }
+
+        // Return only eligible drivers (filter status containing "Eligible")
+        return eligibleList.Where(d => d.EligibilityStatus.StartsWith("Eligible")).ToList();
+    }
+
+    public async Task<bool> TryAssignDriverAsync(Guid shipmentId, Guid driverId, Guid matchingSessionId, Viewer viewer, CancellationToken ct)
+    {
+        var shipment = await _shipments.FindForUpdateAsync(shipmentId, ct)
+            ?? throw new NotFoundException("Shipment not found.");
+
+        // Verify viewer permissions
+        if (!viewer.IsPlatformAdmin && !viewer.IsCarrierOf(shipment))
+        {
+            throw new ForbiddenException("Only carrier admins can assign drivers.");
+        }
+
+        var carrierId = shipment.CarrierCompanyId
+            ?? throw new ConflictException("Shipment does not have an assigned carrier company.");
+
+        // Load driver
+        var driver = await _db.Drivers
+            .FirstOrDefaultAsync(d => d.Id == driverId && d.CompanyId == carrierId && d.IsActive, ct)
+            ?? throw new NotFoundException("Driver not found.");
+
+        // Basic availability checks
+        if (!driver.IsAvailable) return false;
+        if (driver.AssignedVehicleId == null) return false;
+
+        var vehicle = await _db.Vehicles
+            .FirstOrDefaultAsync(v => v.Id == driver.AssignedVehicleId && v.IsActive, ct)
+            ?? throw new NotFoundException("Vehicle not found.");
+
+        // Ensure driver/vehicle are not already busy
+        var driverBusy = await _assignments.HasActiveForDriverAsync(driver.Id, ct);
+        var vehicleBusy = await _assignments.HasActiveForVehicleAsync(vehicle.Id, ct);
+        if (driverBusy || vehicleBusy) return false;
+
+        // Capacity / dimension check
+        if (!CheckVehicleFitsCargo(vehicle, shipment.Cargo)) return false;
+
+        // Verify matching session is still active
+        var session = await _db.MatchingSessions
+            .FirstOrDefaultAsync(s => s.Id == matchingSessionId && s.ShipmentId == shipmentId, ct);
+        if (session == null || session.Status != MatchingSessionStatus.Active)
+            return false;
+
+        // Create assignment within transaction
+        using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var now = _time.GetUtcNow().UtcDateTime;
+            var window = TimeWindow.Of(now, now.AddHours(12)); // simplified window
+            var existingAssignments = await _assignments.ListActiveOverlappingForAsync(driver.Id, vehicle.Id, window, ct);
+            var assignment = Assignment.Create(shipment, driver, vehicle, window, viewer.UserId, existingAssignments, now);
+            await _assignments.AddAsync(assignment, ct);
+
+            // Update driver availability
+            driver.SetAvailable(false);
+
+            // Mark shipment as assigned
+            shipment.AssignDriver(driver.Id, vehicle.Id, now);
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(ct);
+            return false;
+        }
+
+        // Notify parties
+        await _notifier.NotifyShipmentTakenAsync(driver.CompanyId, shipment.Id, driver.Id);
+        await _notifier.NotifyShipmentAssignedAsync(
+            driver.CompanyId,
+            shipment.CustomerId,
+            shipment.Id,
+            driver.FullName,
+            vehicle.PlateNumber);
+
+        return true;
+    }
+
     public async Task<MatchingStatusDto> GetMatchingStatusAsync(Guid shipmentId, Viewer viewer, CancellationToken ct)
     {
         var shipment = await _shipments.FindAsync(shipmentId, ct)
@@ -101,7 +346,7 @@ public sealed class DriverMatchingService : IDriverMatchingService
                 && vehicle!.Capacity.MaxWeightKg >= shipment.Cargo.WeightKg
                 && vehicle.Capacity.MaxVolumeM3 >= shipment.Cargo.VolumeM3;
 
-            var canCarryDimensions = hasVehicle && CheckDimensionsFit(vehicle!.Type, shipment.Cargo.VolumeM3, shipment.Cargo.WeightKg);
+            var canCarryDimensions = hasVehicle && CheckVehicleFitsDimensions(vehicle!, shipment.Cargo);
 
             string statusText;
             if (!hasVehicle)
@@ -145,7 +390,8 @@ public sealed class DriverMatchingService : IDriverMatchingService
                 VehicleMaxWeightKg: vehicle?.Capacity.MaxWeightKg,
                 VehicleMaxVolumeM3: vehicle?.Capacity.MaxVolumeM3,
                 CanCarryDimensions: canCarryDimensions,
-                EligibilityStatus: statusText
+                EligibilityStatus: statusText,
+                VehicleModel: vehicle?.ModelName ?? vehicle?.PlateNumber
             ));
         }
 
@@ -177,7 +423,8 @@ public sealed class DriverMatchingService : IDriverMatchingService
                         VehicleMaxWeightKg: assignedVeh?.Capacity.MaxWeightKg,
                         VehicleMaxVolumeM3: assignedVeh?.Capacity.MaxVolumeM3,
                         CanCarryDimensions: true,
-                        EligibilityStatus: "Assigned"
+                        EligibilityStatus: "Assigned",
+                        VehicleModel: assignedVeh?.ModelName ?? assignedVeh?.PlateNumber
                     );
                 }
             }
@@ -214,7 +461,7 @@ public sealed class DriverMatchingService : IDriverMatchingService
         var shipment = await _shipments.FindForUpdateAsync(shipmentId, ct)
             ?? throw new NotFoundException("Shipment not found.");
 
-        if (!viewer.CanDispatch || !viewer.IsCarrierOf(shipment))
+        if (!viewer.IsPlatformAdmin && (!viewer.CanDispatch || !viewer.IsCarrierOf(shipment)))
         {
             throw new ForbiddenException("Only an administrator or dispatcher of the assigned carrier can dispatch this shipment.");
         }
@@ -243,7 +490,7 @@ public sealed class DriverMatchingService : IDriverMatchingService
         var shipment = await _shipments.FindForUpdateAsync(shipmentId, ct)
             ?? throw new NotFoundException("Shipment not found.");
 
-        if (!viewer.CanDispatch || !viewer.IsCarrierOf(shipment))
+        if (!viewer.IsPlatformAdmin && (!viewer.CanDispatch || !viewer.IsCarrierOf(shipment)))
         {
             throw new ForbiddenException("Only an administrator or dispatcher of the assigned carrier can cancel dispatch.");
         }
@@ -312,14 +559,8 @@ public sealed class DriverMatchingService : IDriverMatchingService
         {
             if (s.Stops.Count < 2) continue;
 
-            // Vehicle capacity check
-            if (vehicle.Capacity.MaxWeightKg < s.Cargo.WeightKg || vehicle.Capacity.MaxVolumeM3 < s.Cargo.VolumeM3)
-            {
-                continue;
-            }
-
-            // Dimension check
-            if (!CheckDimensionsFit(vehicle.Type, s.Cargo.VolumeM3, s.Cargo.WeightKg))
+            // Vehicle capacity and dimension check
+            if (!CheckVehicleFitsCargo(vehicle, s.Cargo))
             {
                 continue;
             }
@@ -405,9 +646,9 @@ public sealed class DriverMatchingService : IDriverMatchingService
             throw new ConflictException("This shipment has already been accepted by another driver.");
         }
 
-        if (!vehicle.Capacity.CanCarry(shipment.Cargo))
+        if (!CheckVehicleFitsCargo(vehicle, shipment.Cargo))
         {
-            throw new ConflictException("Your assigned vehicle does not have sufficient capacity for this shipment.");
+            throw new ConflictException("Your assigned vehicle does not have sufficient capacity or dimensions for this shipment.");
         }
 
         var now = _time.GetUtcNow().UtcDateTime;
@@ -487,7 +728,8 @@ public sealed class DriverMatchingService : IDriverMatchingService
             AssignedVehiclePlate: vehicle?.PlateNumber,
             AssignedVehicleType: vehicle?.Type.ToString(),
             IsAvailable: driver.IsAvailable,
-            HasActiveAssignment: hasActive
+            HasActiveAssignment: hasActive,
+            AssignedVehicleModel: vehicle?.ModelName ?? vehicle?.PlateNumber
         );
     }
 
@@ -537,14 +779,69 @@ public sealed class DriverMatchingService : IDriverMatchingService
         return VehicleType.Van;
     }
 
-    private static bool CheckDimensionsFit(VehicleType type, decimal volumeM3, decimal weightKg)
+    private static bool CheckVehicleFitsCargo(Vehicle vehicle, Cargo cargo)
     {
-        return type switch
+        if (vehicle.Capacity.MaxWeightKg < cargo.WeightKg || vehicle.Capacity.MaxVolumeM3 < cargo.VolumeM3)
         {
-            VehicleType.Van => volumeM3 <= 14.5m && weightKg <= 2000m,
-            VehicleType.Pickup => volumeM3 <= 18m && weightKg <= 2600m,
-            VehicleType.Truck => volumeM3 <= 76m && weightKg <= 12500m,
-            VehicleType.Trailer => volumeM3 <= 120m && weightKg <= 28000m,
+            return false;
+        }
+
+        return CheckVehicleFitsDimensions(vehicle, cargo);
+    }
+
+    private static bool CheckVehicleFitsDimensions(Vehicle vehicle, Cargo cargo)
+    {
+        // 1. If vehicle has actual stored specifications, check against physical constraints
+        if (vehicle.CargoLengthM.HasValue && vehicle.CargoWidthM.HasValue && vehicle.CargoHeightM.HasValue)
+        {
+            // Check for explicit length requirements in cargo description (e.g. "(Max Length 3.1m)")
+            var match = System.Text.RegularExpressions.Regex.Match(
+                cargo.Description,
+                @"(?:Max\s+Length|Length[:\s]+)\s*(\d+(?:\.\d+)?)\s*m",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (match.Success && decimal.TryParse(match.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var requiredLengthM))
+            {
+                if (vehicle.CargoLengthM.Value < requiredLengthM)
+                {
+                    return false;
+                }
+            }
+
+            // Check if cargo requires weather protection or high clearance (e.g. furniture suites, textiles, electronics)
+            if (vehicle.Type == VehicleType.Pickup)
+            {
+                var isWeatherSensitiveOrBulky =
+                    cargo.Description.Contains("Furniture", StringComparison.OrdinalIgnoreCase) ||
+                    cargo.Description.Contains("Wardrobe", StringComparison.OrdinalIgnoreCase) ||
+                    cargo.Description.Contains("Textile", StringComparison.OrdinalIgnoreCase) ||
+                    cargo.Description.Contains("Apparel", StringComparison.OrdinalIgnoreCase) ||
+                    cargo.VolumeM3 > 3.0m;
+
+                if (isWeatherSensitiveOrBulky)
+                {
+                    return false;
+                }
+            }
+
+            // Large furniture suite requiring tall interior height (>= 1.6m) and length (>= 3.0m)
+            if (cargo.Description.Contains("Wardrobe", StringComparison.OrdinalIgnoreCase) ||
+                cargo.Description.Contains("Living Room", StringComparison.OrdinalIgnoreCase))
+            {
+                if (vehicle.CargoHeightM.Value < 1.6m || vehicle.CargoLengthM.Value < 3.0m)
+                {
+                    return false;
+                }
+            }
+        }
+
+        // 2. Category range fallback
+        return vehicle.Type switch
+        {
+            VehicleType.Van => cargo.VolumeM3 <= 14.5m && cargo.WeightKg <= 2000m,
+            VehicleType.Pickup => cargo.VolumeM3 <= 18m && cargo.WeightKg <= 2600m,
+            VehicleType.Truck => cargo.VolumeM3 <= 76m && cargo.WeightKg <= 12500m,
+            VehicleType.Trailer => cargo.VolumeM3 <= 120m && cargo.WeightKg <= 28000m,
             _ => true
         };
     }
